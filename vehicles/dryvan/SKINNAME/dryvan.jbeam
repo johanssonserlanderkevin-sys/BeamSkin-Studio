@@ -1,0 +1,11 @@
+{
+"dryvan_skin_skinname": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name",
+        "value":1000,
+    }
+    "slotType" : "paint_design",
+    "globalSkin" : "skinname",
+}
+}

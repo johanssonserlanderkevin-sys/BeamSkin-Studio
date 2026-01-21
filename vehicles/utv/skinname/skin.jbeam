@@ -1,0 +1,11 @@
+{
+"utv_main_skin_skinname": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Skin Name",
+        "value":0,
+    },
+    "slotType" : "paint_design",
+    "globalSkin" : "skinname",
+},
+}

@@ -1,0 +1,11 @@
+{
+"md_series_skin_skinnameambulance": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name (Ambulance)",
+        "value":0
+    },
+    "slotType" : "paint_design",
+    "globalSkin" : "skinnameambulance"
+  },
+}

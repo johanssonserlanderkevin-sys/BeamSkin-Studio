@@ -1,0 +1,35 @@
+{
+  "atv_body.skin.skinname": {
+    "name": "atv_body.skin.skinname",
+    "mapTo": "atv_body.skin.skinname",
+    "class": "material",
+    "persistentId": "8b9862de-3ff8-4d88-a908-ce3c867baf8a",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/atv/atv_body_ao.data.png",
+        "baseColorMap": "/vehicles/atv/atv_body_b.color.png",
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/atv/atv_body_m.data.png",
+        "normalMap": "/vehicles/atv/atv_body_nm.normal.png",
+		"opacityMapUseUV": 1,
+        "roughnessMap": "/vehicles/atv/atv_body_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/atv/atv_body_ao.data.png",
+        "baseColorMap": "/vehicles/atv/skinname/atv_skin_skinname.dds",
+        "clearCoatFactor": 0.180000007,
+        "clearCoatMap": "/vehicles/atv/atv_body_c.data.png",
+        "diffuseMapUseUV": 1,
+        "normalMap": "/vehicles/atv/atv_body_nm.normal.png",
+        "roughnessFactor": 0
+      },
+      {},
+      {}
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+ }

@@ -1,0 +1,75 @@
+{
+  "cargobox.skin.SKINNAMEBOX" : {
+    "name" : "cargobox.skin.SKINNAMEBOX",
+    "mapTo" : "cargobox.skin.SKINNAMEBOX",
+    "class" : "Material",
+    "persistentId" : "38c3bd1a-65b9-4d23-86d5-1689115b78e9",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/common/cargobox_ao.data.png",
+        "baseColorMap": "/vehicles/common/cargobox_b.color.png",
+        "metallicMap": "/vehicles/common/cargobox_m.data.png",
+        "metallicFactor": 1,
+        "roughnessFactor": 1,
+        "normalMap": "vehicles/common/cargobox_n.dds",
+        "roughnessMap": "/vehicles/common/cargobox_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/common/cargobox_ao.data.png",
+        "useAnisotropic": true,
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0,
+        "roughnessMap": "/vehicles/common/cargobox_r.data.png",
+        "normalMap": "/vehicles/common/cargobox_n.dds",
+        "opacityMap": "/vehicles/common/cargobox_c.data.png",
+        "baseColorMap": "vehicles/van/SKINNAMEBOX/van_cargobox_skin_SKINNAMEBOX.dds",
+      },
+      {},
+      {}
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "order_simset": 0,
+    "version": 1.5
+  },
+  "van.skin.SKINNAMEBOX" : {
+    "name" : "van.skin.SKINNAMEBOX",
+    "mapTo" : "van.skin.SKINNAMEBOX",
+    "class" : "Material",
+    "persistentId" : "2c1716b6-6515-4920-a39c-202ee48ec78c",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/van/van_main_ao.data.png",
+        "baseColorMap": "/vehicles/van/van_main_b.color.png",
+        "metallicMap": "/vehicles/van/van_main_m.data.png",
+        "metallicFactor": 1,
+        "roughnessFactor": 1,
+        "normalMap": "/vehicles/van/van_main_nm.normal.png",
+        "roughnessMap": "/vehicles/van/van_main_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/van/van_main_ao.data.png",
+        "useAnisotropic": true,
+        "diffuseMapUseUV": 1,
+        "clearCoatFactor": 1,
+        "clearCoatRoughnessFactor":0.05,
+        "metallicFactor": 0.7,
+        "clearCoatMap": "/vehicles/van/van_main_cc.data.png",
+        "normalMap": "//vehicles/van/van_main_nm.normal.png",
+        "opacityMap": "/vehicles/van/van_main_c.data.png",
+        "baseColorMap": "vehicles/van/SKINNAMEBOX/van_skin_SKINNAMEBOX.dds",
+      },
+      {},
+      {}
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  }
+}

@@ -1,0 +1,11 @@
+{
+"pickup_skin_SKINNAMEAMBULANCE": {
+    "information":{
+        "authors":"Top Tier Studios",
+        "name":"Skin Name (Ambulance)",
+        "value":1200,
+    }
+    "slotType" : "paint_design",
+    "globalSkin" : "SKINNAMEAMBULANCE",
+}
+}

@@ -1,0 +1,11 @@
+{
+ "schoolbus_skin_skinnamebus": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name (School Bus)",
+        "value":1500
+    },
+    "slotType" : "skin_schoolbus",
+    "globalSkin" : "skinnamebus"
+  }
+}

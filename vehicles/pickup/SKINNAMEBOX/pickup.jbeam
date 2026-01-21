@@ -1,0 +1,11 @@
+ {
+   "pickup_skin_SKINNAMEBOX": {			
+   "information":{
+       "authors":"YOU",					
+       "name":"Skin Name (Box)",			
+       "value":200,
+   }
+   "slotType" : "paint_design",
+   "globalSkin" : "SKINNAMEBOX",			
+   },
+   }

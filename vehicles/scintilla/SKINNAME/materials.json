@@ -1,0 +1,49 @@
+{
+  "scintilla_main.skin.SKINNAME": {
+    "name": "scintilla_main.skin.SKINNAME",
+    "mapTo": "scintilla_main.skin.SKINNAME",
+    "class": "material",
+    "persistentId": "8b9862de-3ff8-4d88-a908-ce3c867baf8a",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/scintilla/scintilla_main_ao.data.png",
+        "baseColorMap": "/vehicles/scintilla/scintilla_main_b.color.png",
+        "clearCoatFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/scintilla/scintilla_main_m.data.png",
+        "normalMap": "vehicles/scintilla/scintilla_main_nm.normal.png",
+        "roughnessFactor": null,
+        "roughnessMap": "/vehicles/scintilla/scintilla_main_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/scintilla/scintilla_main_ao.data.png",
+        "baseColorMap": "/vehicles/scintilla/SKINNAME/scintilla_skin_SKINNAME.dds",
+        "clearCoatFactor": 0.180000007,
+        "clearCoatMap": "/vehicles/scintilla/scintilla_main_cc.data.png",
+        "diffuseMapUseUV": 1,
+        "metallicFactor": null,
+        "normalMap": "/vehicles/scintilla/scintilla_main_nm.normal.png",
+        "opacityMap": "/vehicles/scintilla/scintilla_main_c.data.png",
+        "roughnessFactor": 0
+      },
+      {
+        "clearCoatFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      },
+      {
+        "clearCoatFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  }
+}
