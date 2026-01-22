@@ -15,6 +15,100 @@ import io
 from datetime import datetime
 import re
 import copy
+import requests
+
+def setup_universal_scroll_handler():
+    """
+    Sets up intelligent scroll handling that automatically detects
+    which scrollable frame the mouse is over and scrolls that frame.
+    """
+    # Remove any existing scroll bindings first
+    app.unbind_all("<MouseWheel>")
+    app.unbind_all("<Button-4>")
+    app.unbind_all("<Button-5>")
+    
+    def universal_scroll(event):
+        """Handle scroll events intelligently based on mouse position"""
+        # Get widget under mouse
+        x, y = app.winfo_pointerxy()
+        widget = app.winfo_containing(x, y)
+        
+        if not widget:
+            return
+        
+        # Find the nearest scrollable parent
+        scrollable_frame = None
+        current = widget
+        
+        while current:
+            # Check if this widget is a scrollable frame
+            if isinstance(current, ctk.CTkScrollableFrame):
+                scrollable_frame = current
+                break
+            try:
+                current = current.master
+            except:
+                break
+        
+        # If we found a scrollable frame, scroll it
+        if scrollable_frame:
+            try:
+                # Calculate scroll amount
+                if event.num == 4 or event.delta > 0:
+                    # Scroll up 
+                    scrollable_frame._parent_canvas.yview_scroll(-25, "units")
+                elif event.num == 5 or event.delta < 0:
+                    # Scroll down
+                    scrollable_frame._parent_canvas.yview_scroll(25, "units")
+                return "break"
+            except:
+                pass
+    
+    # Bind to all scroll events
+    app.bind_all("<MouseWheel>", universal_scroll, add="+")
+    app.bind_all("<Button-4>", universal_scroll, add="+")  # Linux scroll up
+    app.bind_all("<Button-5>", universal_scroll, add="+")  # Linux scroll down
+
+# Read version from version.txt
+def read_version():
+    print(f"[DEBUG] ========== READING VERSION FILE ==========")
+    try:
+        print(f"[DEBUG] Opening version.txt...")
+        with open('version.txt', 'r') as f:
+            content = f.read().strip()
+            print(f"[DEBUG] Raw content: '{content}'")
+            if "Version:" in content:
+                version = content.replace("Version:", "").strip()
+                print(f"[DEBUG] Removed 'Version:' prefix, result: '{version}'")
+                return version
+            print(f"[DEBUG] No 'Version:' prefix found, returning as-is")
+            return content
+    except Exception as e:
+        print(f"[DEBUG] ERROR reading version.txt: {e}")
+        return "Unknown"
+
+CURRENT_VERSION = read_version()
+print(f"[DEBUG] Current version set to: {CURRENT_VERSION}")
+print(f"[DEBUG] ========== VERSION READ COMPLETE ==========\n")
+
+def center_window(window):
+    """Centers the window on the screen"""
+    # Set initial geometry first
+    window.geometry("1600x1000")
+    
+    # Force window to process geometry
+    window.update_idletasks()
+    
+    # Get screen dimensions
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    
+    # Calculate position for 1600x1000 window
+    x = (screen_width // 2) - (1600 // 2)
+    y = (screen_height // 2) - (1000 // 2)
+    
+    # Apply centered geometry
+    window.geometry(f'1600x1000+{x}+{y}')
 
 VEHICLE_FOLDER = os.path.join(os.getcwd(), "vehicles")
 os.makedirs(VEHICLE_FOLDER, exist_ok=True)
@@ -211,6 +305,166 @@ def edit_material_json(json_path, skinname_folder, carid):
         raise
 
 
+def check_for_updates():
+    """Check for updates from GitHub repository"""
+    print(f"\n[DEBUG] ========== UPDATE CHECK STARTED ==========")
+    print(f"[DEBUG] Current version: {CURRENT_VERSION}")
+    
+    # link to your RAW version.txt
+    url = "https://raw.githubusercontent.com/johanssonserlanderkevin-sys/BeamSkin-Studio/main/version.txt"
+    print(f"[DEBUG] Checking URL: {url}")
+    
+    try:
+        print(f"[DEBUG] Sending HTTP request...")
+        response = requests.get(url, timeout=5)
+        print(f"[DEBUG] Response status code: {response.status_code}")
+        
+        if response.status_code == 200:
+            content = response.text.strip()
+            print(f"[DEBUG] Raw content from GitHub: '{content}'")
+            
+            # This logic removes "Version: " if it exists in the file
+            if "Version:" in content:
+                latest_version = content.replace("Version:", "").strip()
+                print(f"[DEBUG] Removed 'Version:' prefix")
+            else:
+                latest_version = content
+            
+            print(f"[DEBUG] Latest version: {latest_version}")
+            print(f"[DEBUG] Current version: {CURRENT_VERSION}")
+            
+            # Compare the cloud version to your local CURRENT_VERSION
+            if latest_version != CURRENT_VERSION:
+                print(f"[DEBUG] UPDATE AVAILABLE! {CURRENT_VERSION} -> {latest_version}")
+                # Use app.after to safely trigger the popup from a background thread
+                app.after(0, lambda: prompt_update(latest_version))
+            else:
+                print(f"[DEBUG] Already on latest version")
+        else:
+            print(f"[DEBUG] Non-200 status code: {response.status_code}")
+    except Exception as e:
+        print(f"[DEBUG] Update check failed: {e}")
+    
+    print(f"[DEBUG] ========== UPDATE CHECK COMPLETE ==========\n")
+
+def prompt_update(new_version):
+    """Show integrated update notification window"""
+    print(f"\n[DEBUG] ========== UPDATE PROMPT ==========")
+    print(f"[DEBUG] Showing update dialog for version: {new_version}")
+    
+    # Create update window
+    update_window = ctk.CTkToplevel(app)
+    update_window.title("Update Available")
+    update_window.geometry("500x350")
+    update_window.resizable(False, False)
+    update_window.transient(app)
+    update_window.grab_set()
+    
+    # Center the update window
+    update_window.update_idletasks()
+    width = update_window.winfo_width()
+    height = update_window.winfo_height()
+    x = (update_window.winfo_screenwidth() // 2) - (width // 2)
+    y = (update_window.winfo_screenheight() // 2) - (height // 2)
+    update_window.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Main frame with less padding
+    main_frame = ctk.CTkFrame(update_window, fg_color=colors["frame_bg"])
+    main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Title
+    title_label = ctk.CTkLabel(
+        main_frame,
+        text="🎉 Update Available!",
+        font=ctk.CTkFont(size=20, weight="bold"),
+        text_color=colors["accent"]
+    )
+    title_label.pack(pady=(5, 15))
+    
+    # Version info frame
+    info_frame = ctk.CTkFrame(main_frame, fg_color=colors["card_bg"], corner_radius=10)
+    info_frame.pack(fill="x", padx=10, pady=10)
+    
+    current_label = ctk.CTkLabel(
+        info_frame,
+        text=f"Current Version: {CURRENT_VERSION}",
+        font=ctk.CTkFont(size=13),
+        text_color=colors["text"]
+    )
+    current_label.pack(pady=(10, 5))
+    
+    arrow_label = ctk.CTkLabel(
+        info_frame,
+        text="↓",
+        font=ctk.CTkFont(size=16, weight="bold"),
+        text_color=colors["accent"]
+    )
+    arrow_label.pack(pady=2)
+    
+    new_label = ctk.CTkLabel(
+        info_frame,
+        text=f"New Version: {new_version}",
+        font=ctk.CTkFont(size=13, weight="bold"),
+        text_color=colors["accent"]
+    )
+    new_label.pack(pady=(5, 10))
+    
+    # Message
+    message_label = ctk.CTkLabel(
+        main_frame,
+        text="Would you like to open the GitHub page to download it?",
+        font=ctk.CTkFont(size=12),
+        text_color=colors["text"]
+    )
+    message_label.pack(pady=(10, 15))
+    
+    # Buttons frame
+    button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+    button_frame.pack(fill="x", pady=(5, 10), padx=10)
+    
+    def download_update():
+        print(f"[DEBUG] User chose to download update")
+        print(f"[DEBUG] Opening GitHub page...")
+        webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
+        print(f"[DEBUG] GitHub page opened")
+        update_window.destroy()
+    
+    def skip_update():
+        print(f"[DEBUG] User declined update")
+        update_window.destroy()
+    
+    # Download Update button
+    download_btn = ctk.CTkButton(
+        button_frame,
+        text="Download Update",
+        command=download_update,
+        fg_color=colors["accent"],
+        hover_color=colors["accent_hover"],
+        text_color=colors["accent_text"],
+        height=45,
+        corner_radius=8,
+        font=ctk.CTkFont(size=14, weight="bold")
+    )
+    download_btn.pack(side="left", expand=True, fill="x", padx=(0, 5))
+    
+    # Maybe Later button
+    later_btn = ctk.CTkButton(
+        button_frame,
+        text="Maybe Later",
+        command=skip_update,
+        fg_color=colors["card_bg"],
+        hover_color=colors["card_hover"],
+        text_color=colors["text"],
+        height=45,
+        corner_radius=8,
+        font=ctk.CTkFont(size=14)
+    )
+    later_btn.pack(side="right", expand=True, fill="x", padx=(5, 0))
+    
+    print(f"[DEBUG] Update window displayed")
+    print(f"[DEBUG] ========== UPDATE PROMPT COMPLETE ==========\n")
+
+
 # Example usage and testing function
 def test_editor():
     """Test function to demonstrate usage"""
@@ -379,7 +633,8 @@ SETTINGS_FILE = "app_settings.json"
 
 # Default settings
 app_settings = {
-    "theme": "dark"  # "dark" or "light"
+    "theme": "dark",  # "dark" or "light"
+    "first_launch": True  # Show WIP warning on first launch
 }
 
 # Load settings
@@ -395,46 +650,60 @@ def save_settings():
     with open(SETTINGS_FILE, "w") as f:
         json.dump(app_settings, f, indent=4)
 
+
+
+
+# -----------------------
+# Theme System - UPDATED
+# -----------------------
+
 # Theme color definitions
 THEMES = {
     "dark": {
-        "app_bg": "#0d0d0d",
-        "frame_bg": "#1a1a1a",
-        "card_bg": "#262626",
-        "card_hover": "#333333",
-        "text": "#f2f2f2",
-        "text_secondary": "gray40",
+        "app_bg": "#0a0a0a",
+        "frame_bg": "#141414",
+        "card_bg": "#1e1e1e",
+        "card_hover": "#282828",
+        "text": "#f5f5f5",
+        "text_secondary": "#999999",
         "accent": "#39E09B",
-        "accent_hover": "#30BD82",
-        "accent_text": "black",
-        "tab_selected": "#262626",
-        "tab_selected_hover": "#333333",
-        "tab_unselected": "#1a1a1a",
-        "tab_unselected_hover": "#262626",
-        "border": "#333333",
-        "error": "#E03939",
-        "error_hover": "#BD3030"
+        "accent_hover": "#2fc97f",
+        "accent_text": "#0a0a0a",
+        "tab_selected": "#1e1e1e",
+        "tab_selected_hover": "#282828",
+        "tab_unselected": "#141414",
+        "tab_unselected_hover": "#1e1e1e",
+        "border": "#2a2a2a",
+        "error": "#ff4444",
+        "error_hover": "#cc3636",
+        "success": "#39E09B",
+        "warning": "#ffa726",
+        "topbar_bg": "#181818",
+        "sidebar_bg": "#121212"
     },
     "light": {
-        "app_bg": "#f2f2f2",
-        "frame_bg": "#e6e6e6",
-        "card_bg": "#d9d9d9",
-        "card_hover": "#cccccc",
-        "text": "#0d0d0d",
-        "text_secondary": "gray60",
+        "app_bg": "#fafafa",
+        "frame_bg": "#f0f0f0",
+        "card_bg": "#ffffff",
+        "card_hover": "#f5f5f5",
+        "text": "#1a1a1a",
+        "text_secondary": "#888888",
         "accent": "#39E09B",
-        "accent_hover": "#30BD82",
-        "accent_text": "black",
-        "tab_selected": "#d9d9d9",
-        "tab_selected_hover": "#cccccc",
-        "tab_unselected": "#e6e6e6",
-        "tab_unselected_hover": "#d9d9d9",
-        "border": "#cccccc",
-        "error": "#E03939",
-        "error_hover": "#BD3030"
+        "accent_hover": "#2fc97f",
+        "accent_text": "#0a0a0a",
+        "tab_selected": "#ffffff",
+        "tab_selected_hover": "#f5f5f5",
+        "tab_unselected": "#f0f0f0",
+        "tab_unselected_hover": "#ffffff",
+        "border": "#e0e0e0",
+        "error": "#ff4444",
+        "error_hover": "#cc3636",
+        "success": "#39E09B",
+        "warning": "#ffa726",
+        "topbar_bg": "#f5f5f5",
+        "sidebar_bg": "#eeeeee"
     }
 }
-
 current_theme = app_settings["theme"]
 colors = THEMES[current_theme]
 
@@ -555,67 +824,94 @@ hover_timer = None
 current_hover_carid = None
 
 def show_hover_preview(carid, x, y):
-    """Show preview image for vehicle on hover"""
-    global hover_preview_window
-    
-    # Close existing preview if any
-    if hover_preview_window is not None:
-        hover_preview_window.destroy()
-        hover_preview_window = None
-    
-    # Construct image path
+    """Show preview image for vehicle INSIDE the main window"""
+    # 1. Get live mouse position relative to the main window
+    mouse_x = app.winfo_pointerx() - app.winfo_rootx()
+    mouse_y = app.winfo_pointery() - app.winfo_rooty()
+
+    # 2. Clear previous content
+    for child in preview_overlay.winfo_children():
+        child.destroy()
+
     image_path = os.path.join("imagesforgui", "vehicles", carid, "default.jpg")
     
-    print(f"Attempting to load preview image: {image_path}")
-    
+    # Use fallback image if preview doesn't exist
     if not os.path.exists(image_path):
-        print(f"Preview image not found for carid: {carid}")
+        fallback_path = os.path.join("imagesforgui", "common", "imagepreview", "MissingTexture.jpg")
+        if os.path.exists(fallback_path):
+            image_path = fallback_path
+        else:
+            return
+
+    try:
+        # Load Image
+        img = Image.open(image_path)
+        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+        photo = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+
+        # Build UI
+        header = ctk.CTkFrame(preview_overlay, fg_color=colors["accent"], height=30, corner_radius=8)
+        header.pack(fill="x", padx=2, pady=2)
+        ctk.CTkLabel(header, text=carid, text_color=colors["accent_text"], font=("Segoe UI", 12, "bold")).pack()
+        
+        img_label = ctk.CTkLabel(preview_overlay, image=photo, text="")
+        img_label.pack(padx=10, pady=5)
+
+        # 3. ADVANCED POSITIONING (The fix for bottom-clipping)
+        app.update_idletasks() # Ensure window math is current
+        app_w = app.winfo_width()
+        app_h = app.winfo_height()
+        
+        # Force the overlay to calculate its own size based on the image loaded
+        preview_overlay.update_idletasks()
+        p_width = preview_overlay.winfo_reqwidth()
+        p_height = preview_overlay.winfo_reqheight()
+
+        # HORIZONTAL LOGIC
+        # Default: 20px to the right of cursor
+        pos_x = mouse_x + 20
+        # If it hits the right wall, move it to the left of the cursor
+        if pos_x + p_width > app_w:
+            pos_x = mouse_x - p_width - 20
+
+        # VERTICAL LOGIC (The Bottom Anchor Fix)
+        # Default: 10px below the cursor
+        pos_y = mouse_y + 10
+        # If the bottom of the preview would go off-screen:
+        if pos_y + p_height > app_h:
+            # Shift the window UP so its bottom is 10px above the cursor
+            pos_y = mouse_y - p_height - 10
+            
+        # FINAL SAFETY: Never let it go off the top (y<0) or left (x<0)
+        pos_x = max(10, pos_x)
+        pos_y = max(10, pos_y)
+
+        # 4. Display
+        preview_overlay.place(x=pos_x, y=pos_y)
+        preview_overlay.lift()
+
+    except Exception as e:
+        print(f"Internal Preview Error: {e}")
+
+def hide_hover_preview(calling_carid=None, force=False):
+    """Hide the internal preview overlay"""
+    global hover_timer, current_hover_carid
+    
+    # Handle the timer
+    if force or calling_carid is None or current_hover_carid == calling_carid:
+        if hover_timer is not None:
+            app.after_cancel(hover_timer)
+            hover_timer = None
+            
+        # This is the fix: hide the internal frame
+        preview_overlay.place_forget()
+        current_hover_carid = None
         return
     
-    try:
-        # Get car name
-        car_name = carid  # Default to carid if not found
-        for cid, cname in car_id_list:
-            if cid == carid:
-                car_name = cname
-                break
-        
-        # Load and resize image
-        img = Image.open(image_path)
-        img.thumbnail((400, 400), Image.Resampling.LANCZOS)
-        
-        print(f"Preview image loaded successfully for: {carid}")
-        
-        # Create preview window
-        hover_preview_window = ctk.CTkToplevel(app)
-        hover_preview_window.overrideredirect(True)  # Remove window decorations
-        hover_preview_window.attributes('-topmost', True)
-        hover_preview_window.configure(fg_color=colors["frame_bg"])
-        
-        # Position window near cursor
-        hover_preview_window.geometry(f"+{x+20}+{y+20}")
-        
-        # Add image to window
-        photo = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-        label = ctk.CTkLabel(hover_preview_window, image=photo, text="")
-        label.image = photo  # Keep reference
-        label.pack(padx=5, pady=5)
-        
-        # Add car name and carid label
-        ctk.CTkLabel(
-            hover_preview_window, 
-            text=f"Car Name: {car_name}  |  Car ID: {carid}", 
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=colors["text"]
-        ).pack(pady=(0, 5))
-        
-    except Exception as e:
-        print(f"Error loading preview image for {carid}: {e}")
+    # If a specific card is leaving, but we already moved to a new card, don't hide
+    if calling_carid is not None and current_hover_carid != calling_carid:
+        return
 
-def hide_hover_preview():
-    """Hide the hover preview window"""
-    global hover_preview_window, hover_timer, current_hover_carid
-    
     if hover_timer is not None:
         app.after_cancel(hover_timer)
         hover_timer = None
@@ -627,22 +923,83 @@ def hide_hover_preview():
     current_hover_carid = None
 
 def schedule_hover_preview(carid, widget):
-    """Schedule preview to show after 1 second of hovering"""
+    """Schedule preview to show after a short delay"""
     global hover_timer, current_hover_carid
     
-    # Cancel existing timer
+    # If we are already showing this car, do nothing
+    if current_hover_carid == carid:
+        return
+
+    # Cancel any pending timers for other cars
     if hover_timer is not None:
         app.after_cancel(hover_timer)
     
     current_hover_carid = carid
     
-    # Get cursor position relative to screen
-    x = widget.winfo_pointerx()
-    y = widget.winfo_pointery()
-    
-    # Schedule preview to show after 1000ms (1 second)
-    hover_timer = app.after(1000, lambda: show_hover_preview(carid, x, y))
+    # Show preview after a short delay (400ms feels snappier than 1000ms)
+    hover_timer = app.after(400, lambda: show_hover_preview(carid, widget.winfo_pointerx(), widget.winfo_pointery()))
 
+    # CORRECTED CODE (The block after the def is shifted right):
+def setup_robust_hover(main_card, carid):
+    """
+    Set up robust hover preview for a card that works on all child elements.
+    Uses coordinate-based detection and recursive binding.
+    """
+    def is_pointer_inside(widget):
+        """Math check to see if mouse is inside the card boundaries"""
+        try:
+            x, y = widget.winfo_pointerxy()
+            root_x = widget.winfo_rootx()
+            root_y = widget.winfo_rooty()
+            width = widget.winfo_width()
+            height = widget.winfo_height()
+            return (root_x <= x <= root_x + width) and (root_y <= y <= root_y + height)
+        except:
+            return False
+    
+    def is_hovering_button(widget):
+        """Check if currently hovering over a button"""
+        current_widget = widget
+        while current_widget:
+            if isinstance(current_widget, ctk.CTkButton):
+                return True
+            try:
+                current_widget = current_widget.master
+            except:
+                break
+        return False
+
+    def on_interaction(event):
+        # 1. IMMEDIATE HIDE if hovering over a button (check both event widget and hierarchy)
+        if isinstance(event.widget, ctk.CTkButton) or is_hovering_button(event.widget):
+            hide_hover_preview(force=True)
+            return
+
+        # 2. Start timer if inside card
+        if is_pointer_inside(main_card):
+            main_card.configure(fg_color=colors["card_hover"])
+            schedule_hover_preview(carid, main_card)
+
+    def on_leave(event):
+        # 3. Check if we actually left the whole card area
+        # Add small delay to allow mouse to move to adjacent elements
+        app.after(50, check_actual_leave)
+    
+    def check_actual_leave():
+        """Delayed check to see if mouse truly left the card"""
+        if not is_pointer_inside(main_card):
+            main_card.configure(fg_color=colors["card_bg"])
+            hide_hover_preview(calling_carid=carid)
+
+    def bind_recursive(widget):
+        """Ensures every label and frame inside the card reports back to the card"""
+        widget.bind("<Enter>", on_interaction, add=True)
+        widget.bind("<Motion>", on_interaction, add=True) 
+        widget.bind("<Leave>", on_leave, add=True)
+        for child in widget.winfo_children():
+            bind_recursive(child)
+
+    bind_recursive(main_card)
 
 # -----------------------
 # Helper function to save added vehicles
@@ -663,83 +1020,459 @@ print("Starting BeamSkin Studio...")
 ctk.set_appearance_mode("dark" if current_theme == "dark" else "light")
 ctk.set_default_color_theme("blue")
 
+# -----------------------
+# Custom Placeholder Functions
+# -----------------------
+def on_entry_click(event, entry, placeholder):
+    """Clear placeholder text when entry is clicked"""
+    print(f"[DEBUG] Entry clicked. Current value: '{entry.get()}'")
+    if entry.get() == placeholder:
+        print(f"[DEBUG] Clearing placeholder: '{placeholder}'")
+        entry.delete(0, "end")
+        entry.insert(0, "")
+        entry.configure(text_color=colors["text"])
+    else:
+        print(f"[DEBUG] Not clearing - value is not placeholder")
+
+def on_focusout(event, entry, placeholder):
+    """Restore placeholder text if entry is empty"""
+    current_value = entry.get()
+    print(f"[DEBUG] Focus out. Current value: '{current_value}'")
+    if current_value == "":
+        print(f"[DEBUG] Restoring placeholder: '{placeholder}'")
+        entry.insert(0, placeholder)
+        entry.configure(text_color="#888888")
+    else:
+        print(f"[DEBUG] Not restoring - entry has value")
+
+def get_real_value(entry_widget, placeholder_text):
+    """Get the real value from entry, ignoring placeholder text"""
+    value = entry_widget.get()
+    print(f"[DEBUG] get_real_value called. Value: '{value}', Placeholder: '{placeholder_text}'")
+    if value == placeholder_text:
+        print(f"[DEBUG] Returning empty string (was placeholder)")
+        return ""
+    print(f"[DEBUG] Returning actual value: '{value}'")
+    return value
+
+
+# ===========================
+# MAIN APP INITIALIZATION
+# ===========================
 app = ctk.CTk()
 app.title("BeamSkin Studio")
-app.geometry("1100x1350")
-app.minsize(700, 600)  # Set minimum window size
-app.resizable(False, True)  # Make window resizable
+app.geometry("1600x1000")
+app.minsize(1100, 1000)
 app.configure(fg_color=colors["app_bg"])
 
-app.update_idletasks()
-width, height = 1100, 1350
-x = (app.winfo_screenwidth() // 2) - (width // 2)
-y = (app.winfo_screenheight() // 2) - (height // 2) - 40 
-app.geometry(f"{width}x{height}+{x}+{y}")
-
-# -----------------------
-# Theme Toggle Function
-# -----------------------
-def toggle_theme():
-    """Toggle between light and dark theme"""
-    global current_theme, colors
-    
-    # Ask user if they want to restart
-    response = messagebox.askyesno(
-        "Restart Required", 
-        "Changing the theme requires restarting the application.\n\n"
-        "⚠️ WARNING: Any unsaved changes will be lost!\n\n"
-        "Do you want to restart now?",
-        icon='warning'
-    )
-    
-    if response:
-        # Switch theme
-        current_theme = "light" if current_theme == "dark" else "dark"
-        colors = THEMES[current_theme]
-        
-        # Save setting
-        app_settings["theme"] = current_theme
-        save_settings()
-        
-        print(f"Theme changed to: {current_theme}")
-        print("Restarting application...")
-        
-        # Restart the application
-        import sys
-        import subprocess
-        
-        # Close current app
-        app.destroy()
-        
-        # Restart with same script
-        subprocess.Popen([sys.executable] + sys.argv)
-        sys.exit()
-    else:
-        # User cancelled, revert the switch
-        if current_theme == "dark":
-            theme_switch.deselect()
-        else:
-            theme_switch.select()
-
-# -----------------------
-# Variables
-# -----------------------
+# ===========================
+# VARIABLE DECLARATIONS (Before UI)
+# ===========================
 mod_name_var = ctk.StringVar()
 skin_name_var = ctk.StringVar()
 author_var = ctk.StringVar()
 dds_path_var = ctk.StringVar()
-# Two variables: one for display (car name), one for actual carid
-selected_carid = list(VEHICLE_IDS.keys())[0]  # Store the actual carid
-vehicle_display_var = ctk.StringVar(value=VEHICLE_IDS[selected_carid])  # Display the car name in UI
+vehicle_display_var = ctk.StringVar()
 output_mode_var = ctk.StringVar(value="steam")
 custom_output_var = ctk.StringVar()
 dds_preview_label = None
 progress_bar = None
 export_status_label = None
+vehicle_search_var = ctk.StringVar()
+carlist_search_var = ctk.StringVar()
 
-# -----------------------
-# Functions
-# -----------------------
+# Global variables
+selected_carid = None
+selected_display_name = None
+vehicle_buttons = []
+vehicle_panel_visible = False
+skin_inputs = []
+carlist_items = []
+
+# Project data
+project_data = {
+    "mod_name": "",
+    "author": "",
+    "cars": {}
+}
+selected_car_for_skin = None
+current_project_widgets = []
+
+
+# Additional UI variables
+notification_label = None
+custom_output_frame = None
+dev_list_items = []
+dev_search_var = ctk.StringVar()
+
+# Sidebar variables
+sidebar_vehicle_buttons = []
+sidebar_search_var = ctk.StringVar()
+expanded_vehicle_carid = None  # Track which vehicle is expanded
+
+# ===========================
+# TOP MENU BAR (Mods Studio 2 Style)
+# ===========================
+topbar = ctk.CTkFrame(app, height=60, fg_color=colors["topbar_bg"], corner_radius=0)
+topbar.pack(fill="x", side="top")
+topbar.pack_propagate(False)
+
+# Title
+title_container = ctk.CTkFrame(topbar, fg_color="transparent")
+title_container.pack(side="left", padx=25, pady=12)
+
+ctk.CTkLabel(
+    title_container, 
+    text="BeamSkin Studio", 
+    font=ctk.CTkFont(size=20, weight="bold"), 
+    text_color=colors["accent"]
+).pack(anchor="w")
+
+ctk.CTkLabel(
+    title_container, 
+    text="Professional Skin Modding Tool", 
+    font=ctk.CTkFont(size=10), 
+    text_color=colors["text_secondary"]
+).pack(anchor="w")
+
+# Menu buttons
+menu_frame = ctk.CTkFrame(topbar, fg_color="transparent")
+menu_frame.pack(side="left", padx=40)
+
+# Generate button (top right) - using lambda to delay function lookup
+generate_button_topbar = ctk.CTkButton(
+    topbar,
+    text="✨ Generate Mod",
+    command=lambda: generate_multi_skin_mod(),
+    height=40,
+    width=150,
+    fg_color=colors["accent"],
+    hover_color=colors["accent_hover"],
+    text_color=colors["accent_text"],
+    corner_radius=10,
+    font=ctk.CTkFont(size=14, weight="bold")
+)
+generate_button_topbar.pack(side="right", padx=25)
+
+menu_buttons = {}
+
+def switch_view(view_name):
+    """Switch between main views"""
+    # Update button colors
+    for name, btn in menu_buttons.items():
+        if name == view_name:
+            btn.configure(fg_color=colors["accent"], text_color=colors["accent_text"])
+        else:
+            btn.configure(fg_color="transparent", text_color=colors["text_secondary"])
+    
+    # Show/hide generate button based on view
+    if view_name == "generator":
+        generate_button_topbar.pack(side="right", padx=25)
+    else:
+        generate_button_topbar.pack_forget()
+    
+    # First, hide all content areas
+    main_content_area.pack_forget()
+    howto_tab.pack_forget()
+    carlist_tab.pack_forget()
+    settings_tab.pack_forget()
+    about_tab.pack_forget()
+    sidebar.pack_forget()
+    if developer_tab is not None:
+        developer_tab.pack_forget()
+    
+    # Now show the appropriate view
+    if view_name == "generator":
+        # Generator view: show sidebar + main content
+        sidebar.pack(fill="y", side="left")
+        main_content_area.pack(fill="both", expand=True, side="left")
+    elif view_name == "howto":
+        howto_tab.pack(fill="both", expand=True)
+    elif view_name == "carlist":
+        carlist_tab.pack(fill="both", expand=True)
+    elif view_name == "settings":
+        settings_tab.pack(fill="both", expand=True)
+    elif view_name == "about":
+        about_tab.pack(fill="both", expand=True)
+    elif view_name == "developer":
+        if developer_tab is not None:
+            developer_tab.pack(fill="both", expand=True)
+    
+    # CRITICAL FIX: Refresh scroll bindings after tab switch
+    app.update_idletasks()  # Ensure all widgets are ready
+    app.after(50, setup_universal_scroll_handler)  # Small delay to ensure everything is loaded
+
+
+
+for btn_text, view_name in [("Generator", "generator"), ("How to Use", "howto"), 
+                             ("Car List", "carlist"), ("Settings", "settings"), ("About", "about")]:
+    is_first = (view_name == "generator")
+    btn = ctk.CTkButton(
+        menu_frame,
+        text=f"   {btn_text}   ",
+        width=110,
+        height=36,
+        fg_color=colors["accent"] if is_first else "transparent",
+        hover_color=colors["accent_hover"] if is_first else colors["card_hover"],
+        text_color=colors["accent_text"] if is_first else colors["text_secondary"],
+        corner_radius=8,
+        font=ctk.CTkFont(size=12, weight="bold" if is_first else "normal"),
+        command=lambda v=view_name: switch_view(v)
+    )
+    btn.pack(side="left", padx=3)
+    menu_buttons[view_name] = btn
+
+# ===========================
+# NOTIFICATION SYSTEM
+# ===========================
+notification_frame = ctk.CTkFrame(app, fg_color="transparent")
+# Don't pack it - we'll use place() to overlay it
+
+# ===========================
+# MAIN CONTAINER
+# ===========================
+main_container = ctk.CTkFrame(app, fg_color=colors["app_bg"])
+main_container.pack(fill="both", expand=True)
+
+# ===========================
+# LEFT SIDEBAR (Mods Studio 2 Style)
+# ===========================
+sidebar = ctk.CTkFrame(main_container, width=280, fg_color=colors["sidebar_bg"], corner_radius=0)
+sidebar.pack(fill="y", side="left")
+sidebar.pack_propagate(False)
+
+# Sidebar header - PROJECT SETTINGS
+sidebar_header = ctk.CTkFrame(sidebar, height=40, fg_color="transparent")
+sidebar_header.pack(fill="x", padx=15, pady=(10, 0))
+sidebar_header.pack_propagate(False)
+
+ctk.CTkLabel(
+    sidebar_header,
+    text="PROJECT SETTINGS",
+    font=ctk.CTkFont(size=13, weight="bold"),
+    text_color=colors["text_secondary"],
+    anchor="w"
+).pack(side="top", fill="x", pady=(5, 0))
+
+# ===========================
+# PROJECT INFO (Sidebar)
+# ===========================
+# ZIP Name
+zip_name_label = ctk.CTkLabel(
+    sidebar,
+    text="ZIP Name",
+    font=ctk.CTkFont(size=11, weight="bold"),
+    text_color=colors["text"],
+    anchor="w"
+)
+zip_name_label.pack(fill="x", padx=15, pady=(5, 5))
+
+mod_name_entry_sidebar = ctk.CTkEntry(
+    sidebar,
+    textvariable=mod_name_var,
+    height=36,
+    fg_color=colors["frame_bg"],
+    border_color=colors["border"],
+    text_color="#888888"
+)
+mod_name_entry_sidebar.pack(fill="x", padx=15, pady=(0, 10))
+
+# Setup custom placeholder
+placeholder_mod = "Enter mod name..."
+mod_name_entry_sidebar.insert(0, placeholder_mod)
+mod_name_entry_sidebar.bind("<FocusIn>", lambda e: on_entry_click(e, mod_name_entry_sidebar, placeholder_mod))
+mod_name_entry_sidebar.bind("<FocusOut>", lambda e: on_focusout(e, mod_name_entry_sidebar, placeholder_mod))
+
+# Author Name
+author_label = ctk.CTkLabel(
+    sidebar,
+    text="Author",
+    font=ctk.CTkFont(size=11, weight="bold"),
+    text_color=colors["text"],
+    anchor="w"
+)
+author_label.pack(fill="x", padx=15, pady=(0, 5))
+
+author_entry_sidebar = ctk.CTkEntry(
+    sidebar,
+    textvariable=author_var,
+    height=36,
+    fg_color=colors["frame_bg"],
+    border_color=colors["border"],
+    text_color="#888888"
+)
+author_entry_sidebar.pack(fill="x", padx=15, pady=(0, 15))
+
+# Setup custom placeholder
+placeholder_author = "Your name..."
+author_entry_sidebar.insert(0, placeholder_author)
+author_entry_sidebar.bind("<FocusIn>", lambda e: on_entry_click(e, author_entry_sidebar, placeholder_author))
+author_entry_sidebar.bind("<FocusOut>", lambda e: on_focusout(e, author_entry_sidebar, placeholder_author))
+
+# Output Location in Sidebar
+output_label = ctk.CTkLabel(
+    sidebar,
+    text="Output Location",
+    font=ctk.CTkFont(size=11, weight="bold"),
+    text_color=colors["text"],
+    anchor="w"
+)
+output_label.pack(fill="x", padx=15, pady=(0, 5))
+
+# Steam option (compact for sidebar)
+steam_option_sidebar = ctk.CTkFrame(sidebar, fg_color=colors["frame_bg"], corner_radius=8, height=45)
+steam_option_sidebar.pack(fill="x", padx=15, pady=(0, 5))
+steam_option_sidebar.pack_propagate(False)
+
+steam_radio_sidebar = ctk.CTkRadioButton(
+    steam_option_sidebar,
+    text="🎮 Steam Workshop",
+    variable=output_mode_var,
+    value="steam",
+    fg_color=colors["accent"],
+    hover_color=colors["accent_hover"],
+    text_color=colors["text"],
+    font=ctk.CTkFont(size=11)
+)
+steam_radio_sidebar.pack(side="left", padx=10, pady=10)
+
+# Custom location option (compact for sidebar)
+custom_option_sidebar = ctk.CTkFrame(sidebar, fg_color=colors["frame_bg"], corner_radius=8, height=45)
+custom_option_sidebar.pack(fill="x", padx=15, pady=(0, 5))
+custom_option_sidebar.pack_propagate(False)
+
+custom_radio_sidebar = ctk.CTkRadioButton(
+    custom_option_sidebar,
+    text="📁 Custom Location",
+    variable=output_mode_var,
+    value="custom",
+    fg_color=colors["accent"],
+    hover_color=colors["accent_hover"],
+    text_color=colors["text"],
+    font=ctk.CTkFont(size=11)
+)
+custom_radio_sidebar.pack(side="left", padx=10, pady=10)
+
+# Custom output path entry (shown when custom is selected) - APPEARS RIGHT AFTER CUSTOM OPTION
+custom_output_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+
+custom_output_entry = ctk.CTkEntry(
+    custom_output_frame,
+    textvariable=custom_output_var,
+    placeholder_text="Select folder...",
+    placeholder_text_color="#888888",
+    state="readonly",
+    height=32,
+    fg_color=colors["frame_bg"],
+    border_color=colors["border"],
+    text_color=colors["text"],
+    font=ctk.CTkFont(size=10)
+)
+custom_output_entry.pack(side="left", fill="x", expand=True, padx=(15, 5))
+
+custom_browse_btn = ctk.CTkButton(
+    custom_output_frame,
+    text="📁",
+    width=32,
+    height=32,
+    command=lambda: select_custom_output(),
+    fg_color=colors["card_bg"],
+    hover_color=colors["card_hover"],
+    text_color=colors["text"],
+    corner_radius=8,
+    font=ctk.CTkFont(size=14)
+)
+custom_browse_btn.pack(side="right", padx=(0, 15))
+
+# Update the output mode change handler
+def update_output_mode():
+    if output_mode_var.get() == "custom":
+        custom_output_frame.pack(fill="x", pady=(0, 10), after=custom_option_sidebar)
+    else:
+        custom_output_frame.pack_forget()
+
+# Bind to the variable
+output_mode_var.trace_add("write", lambda *args: update_output_mode())
+
+# Separator line
+separator = ctk.CTkFrame(sidebar, height=2, fg_color=colors["border"])
+separator.pack(fill="x", padx=15, pady=(10, 10))
+
+# Vehicles label
+vehicles_label = ctk.CTkLabel(
+    sidebar,
+    text="Vehicles",
+    font=ctk.CTkFont(size=11, weight="bold"),
+    text_color=colors["text"],
+    anchor="w"
+)
+vehicles_label.pack(fill="x", padx=15, pady=(0, 5))
+
+# Search box
+sidebar_search_entry = ctk.CTkEntry(
+    sidebar,
+    textvariable=sidebar_search_var,
+    height=32,
+    fg_color=colors["frame_bg"],
+    border_color=colors["border"],
+    text_color="#888888"
+)
+sidebar_search_entry.pack(fill="x", padx=15, pady=(0, 10))
+
+# Setup custom placeholder
+placeholder_sidebar_search = "Search vehicles..."
+sidebar_search_entry.insert(0, placeholder_sidebar_search)
+sidebar_search_entry.bind("<FocusIn>", lambda e: on_entry_click(e, sidebar_search_entry, placeholder_sidebar_search))
+sidebar_search_entry.bind("<FocusOut>", lambda e: on_focusout(e, sidebar_search_entry, placeholder_sidebar_search))
+
+# Scrollable vehicle list
+sidebar_scroll = ctk.CTkScrollableFrame(
+    sidebar,
+    fg_color="transparent",
+    scrollbar_button_color=colors["card_bg"],
+    scrollbar_button_hover_color=colors["card_hover"]
+)
+sidebar_scroll.pack(fill="both", expand=True, padx=10, pady=10)
+
+def update_sidebar_search(*args):
+    """Filter sidebar vehicles"""
+    query = get_real_value(sidebar_search_entry, "Search vehicles...").lower()
+    for container_frame, carid, display_name, add_btn_frame in sidebar_vehicle_buttons:
+        container_frame.pack_forget()
+        if not query or query in carid.lower() or query in display_name.lower():
+            container_frame.pack(fill="x", pady=2, padx=0)
+    try:
+        sidebar_scroll._parent_canvas.yview_moveto(0)
+    except:
+        pass
+
+sidebar_search_var.trace_add("write", update_sidebar_search)
+
+# ===========================
+# MAIN CONTENT AREA
+# ===========================
+main_content_area = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
+main_content_area.pack(fill="both", expand=True, side="left")
+
+# Generator tab IS the main content area
+generator_tab = main_content_area
+
+# Other tabs (full width, no sidebar)
+howto_tab = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
+carlist_tab = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
+settings_tab = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
+about_tab = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
+
+preview_overlay = ctk.CTkFrame(
+    app, 
+    fg_color=colors["card_bg"], 
+    border_color=colors["accent"], 
+    border_width=2,
+    corner_radius=10)
+
+# ===========================
+# HELPER FUNCTIONS
+# ===========================
 def select_dds():
     path = filedialog.askopenfilename(title="Select DDS File", filetypes=[("DDS Files", "*.dds")])
     if path:
@@ -748,6 +1481,7 @@ def select_dds():
         print(f"DDS file selected: {path}")
 
 def load_dds_preview(file_path):
+    global dds_preview_label
     try:
         img = Image.open(file_path)
         w, h = img.size
@@ -761,11 +1495,13 @@ def load_dds_preview(file_path):
             new_w = int(max_size * (w / h))
         img.thumbnail((new_w, new_h), Image.Resampling.LANCZOS)
         photo = ctk.CTkImage(light_image=img, dark_image=img, size=(new_w, new_h))
-        dds_preview_label.configure(image=photo, text="")
-        dds_preview_label.image = photo
+        if dds_preview_label:
+            dds_preview_label.configure(image=photo, text="")
+            dds_preview_label.image = photo
     except Exception as e:
         print(f"Failed to load DDS preview: {e}")
-        dds_preview_label.configure(text="Preview\nUnavailable", image=None)
+        if dds_preview_label:
+            dds_preview_label.configure(text="Preview\nUnavailable", image=None)
 
 def select_custom_output():
     folder = filedialog.askdirectory(title="Select Output Directory")
@@ -774,16 +1510,757 @@ def select_custom_output():
         output_mode_var.set("custom")
         print(f"Custom output directory selected: {folder}")
 
-def update_output_mode():
-    if output_mode_var.get() == "custom":
-        custom_output_frame.pack(fill="x", padx=(20,5), pady=(5,10))
-    else:
-        custom_output_frame.pack_forget()
-
 def update_progress(value):
-    if progress_bar.winfo_ismapped():
+    if progress_bar and progress_bar.winfo_ismapped():
         progress_bar.set(value)
 
+def bind_tree(widget, event, callback):
+    widget.bind(event, callback)
+    for child in widget.winfo_children():
+        bind_tree(child, event, callback)
+
+def _on_vehicle_mousewheel(event):
+    try:
+        scroll_amount = int(-1 * (event.delta / 120) * 15)
+        vehicle_scroll_frame._parent_canvas.yview_scroll(scroll_amount, "units")
+        return "break"
+    except:
+        pass
+
+# ===========================
+# ADDITIONAL FUNCTIONS FROM ORIGINAL
+# ===========================
+
+# === toggle_vehicle_panel ===
+def toggle_vehicle_panel():
+    global vehicle_panel_visible
+    if vehicle_panel_visible:
+        vehicle_panel.pack_forget()
+        vehicle_panel_visible = False
+        select_vehicle_button.configure(
+            text="Select Vehicle",
+            fg_color=colors["card_bg"],
+            hover_color=colors["card_hover"]
+        )
+    else:
+        vehicle_panel.pack(fill="x", padx=10, pady=(0,10), after=vehicle_display_entry)
+        vehicle_panel_visible = True
+        vehicle_search_entry.focus_set()
+        select_vehicle_button.configure(
+            text="Close",
+            fg_color=colors["error"],
+            hover_color=colors["error_hover"]
+        )
+
+
+
+# === select_vehicle ===
+def select_vehicle(carid):
+    global selected_carid
+    
+    # Store the actual carid globally
+    selected_carid = carid
+    
+    # Find and display the car name
+    display_name = carid
+    for btn, cid, dname in vehicle_buttons:
+        if cid == carid:
+            display_name = dname
+            break
+    
+    print(f"Vehicle selected: {display_name} (ID: {carid})")
+    vehicle_display_var.set(display_name)  # Show the display name in UI
+    
+    # Update button colors
+    for btn, cid, dname in vehicle_buttons:
+        btn.configure(fg_color=colors["card_bg"] if cid != carid else "blue")
+    
+    toggle_vehicle_panel()
+
+
+
+# === update_vehicle_list ===
+def update_vehicle_list(*args):
+    query = vehicle_search_var.get().lower()
+    for btn, carid, display_name in vehicle_buttons:
+        btn.master.pack_forget()
+        if query in carid.lower() or query in display_name.lower():
+            btn.master.pack(fill="x", pady=3, padx=5)
+    vehicle_scroll_frame._parent_canvas.yview_moveto(0)
+
+
+
+# === clear_project ===
+def clear_project():
+    """Clear the current project"""
+    global project_data, selected_car_for_skin
+    project_data = {
+        "mod_name": "",
+        "author": "",
+        "cars": {}
+    }
+    selected_car_for_skin = None
+    mod_name_var.set("")
+    author_var.set("")
+    skin_name_var.set("")
+    dds_path_var.set("")
+    dds_preview_label.configure(text="Preview", image=None)
+    refresh_project_display()
+    show_notification("Project cleared", "info", 2000)
+
+
+
+# === save_project ===
+def save_project():
+    """Save the current project to a file"""
+    global project_data
+    
+    # Save current inputs before saving
+    if selected_car_for_skin:
+        save_current_car_inputs()
+    
+    # Update project data with current form values
+    project_data["mod_name"] = get_real_value(mod_name_entry_sidebar, "Enter mod name...")
+    project_data["author"] = get_real_value(author_entry_sidebar, "Your name...")
+    
+    if not project_data["cars"]:
+        show_notification("No cars in project to save", "warning", 3000)
+        return
+    
+    # Ask for save location
+    file_path = filedialog.asksaveasfilename(
+        title="Save Project",
+        defaultextension=".bsproject",
+        filetypes=[("BeamSkin Project", "*.bsproject"), ("All Files", "*.*")]
+    )
+    
+    if file_path:
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(project_data, f, indent=4)
+            show_notification(f"✓ Project saved to {os.path.basename(file_path)}", "success", 3000)
+            print(f"Project saved to: {file_path}")
+        except Exception as e:
+            show_notification(f"Failed to save project: {str(e)}", "error", 4000)
+            print(f"ERROR saving project: {e}")
+
+
+
+# === load_project ===
+def load_project():
+    """Load a project from a file"""
+    global project_data, selected_car_for_skin
+    
+    # Ask for file to load
+    file_path = filedialog.askopenfilename(
+        title="Load Project",
+        filetypes=[("BeamSkin Project", "*.bsproject"), ("All Files", "*.*")]
+    )
+    
+    if file_path:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                loaded_data = json.load(f)
+            
+            # Validate loaded data
+            if "cars" not in loaded_data:
+                show_notification("Invalid project file", "error", 3000)
+                return
+            
+            # Check if all DDS files still exist
+            missing_files = []
+            for car_id, car_info in loaded_data["cars"].items():
+                for skin in car_info.get("skins", []):
+                    dds_path = skin.get("dds_path", "")
+                    if dds_path and not os.path.exists(dds_path):
+                        # Get car name for better error message
+                        base_carid = car_info.get("base_carid", car_id)
+                        car_name = VEHICLE_IDS.get(base_carid, base_carid)
+                        for cid, cname in car_id_list:
+                            if cid == base_carid:
+                                car_name = cname
+                                break
+                        
+                        missing_files.append({
+                            "car": car_name,
+                            "car_id": car_id,
+                            "skin": skin.get("name", "Unknown"),
+                            "path": dds_path
+                        })
+            
+            # If there are missing files, show error and don't load
+            if missing_files:
+                error_message = "Cannot load project - Missing DDS files:\n\n"
+                for missing in missing_files:
+                    error_message += f"• {missing['car']} - Skin '{missing['skin']}':\n  {missing['path']}\n\n"
+                
+                messagebox.showerror(
+                    "Missing Files",
+                    error_message.strip()
+                )
+                print(f"Project load failed - Missing files:")
+                for missing in missing_files:
+                    print(f"  {missing['car']} ({missing['car_id']}) - {missing['skin']}: {missing['path']}")
+                return
+            
+            # Load the project
+            project_data = loaded_data
+            selected_car_for_skin = None
+            
+            # Update form fields
+            mod_name_var.set(project_data.get("mod_name", ""))
+            author_var.set(project_data.get("author", ""))
+            skin_name_var.set("")
+            dds_path_var.set("")
+            dds_preview_label.configure(text="Preview", image=None)
+            
+            # Refresh display
+            refresh_project_display()
+            
+            car_count = len(project_data["cars"])
+            total_skins = sum(len(car_info['skins']) for car_info in project_data['cars'].values())
+            show_notification(f"✓ Loaded project: {car_count} cars, {total_skins} skins", "success", 4000)
+            print(f"Project loaded from: {file_path}")
+            
+        except Exception as e:
+            show_notification(f"Failed to load project: {str(e)}", "error", 4000)
+            print(f"ERROR loading project: {e}")
+
+
+
+# === add_car_to_project ===
+def add_car_to_project():
+    """Add selected car to the project (prevents duplicates)"""
+    global selected_car_for_skin
+    
+    print(f"\n[DEBUG] ========== ADD CAR TO PROJECT ==========")
+    print(f"[DEBUG] Selected car ID: {selected_carid}")
+    print(f"[DEBUG] Current project cars: {list(project_data['cars'].keys())}")
+    
+    if not selected_carid:
+        print(f"[DEBUG] ERROR: No car selected")
+        show_notification("Please select a vehicle first", "error")
+        return
+    
+    # Check if this car is already in the project
+    base_carid = selected_carid
+    print(f"[DEBUG] Base car ID: {base_carid}")
+    
+    # Check all cars in project to see if this base_carid exists
+    for car_instance_id, car_data in project_data["cars"].items():
+        existing_base_carid = car_data.get("base_carid", car_instance_id)
+        print(f"[DEBUG] Checking existing car: {car_instance_id}, base: {existing_base_carid}")
+        if existing_base_carid == base_carid:
+            # Car already exists in project
+            car_name = VEHICLE_IDS.get(base_carid, base_carid)
+            for cid, cname in car_id_list:
+                if cid == base_carid:
+                    car_name = cname
+                    break
+            print(f"[DEBUG] Car already exists: {car_name}")
+            show_notification(f"'{car_name}' is already in the project", "warning", 2000)
+            return
+    
+    # Add car with empty skins list and temp input fields
+    car_instance_id = base_carid
+    print(f"[DEBUG] Adding car with instance ID: {car_instance_id}")
+    project_data["cars"][car_instance_id] = {
+        "base_carid": base_carid,  # Store original carid for generation
+        "skins": [],
+        "temp_skin_name": "",
+        "temp_dds_path": ""
+    }
+    selected_car_for_skin = car_instance_id
+    print(f"[DEBUG] Selected car for skin: {selected_car_for_skin}")
+    
+    # Get car name
+    car_name = VEHICLE_IDS.get(base_carid, base_carid)
+    for cid, cname in car_id_list:
+        if cid == base_carid:
+            car_name = cname
+            break
+    
+    print(f"[DEBUG] Car name: {car_name}")
+    print(f"[DEBUG] Updated project cars: {list(project_data['cars'].keys())}")
+    show_notification(f"✓ Added '{car_name}' to project", "success", 2000)
+    
+    print(f"[DEBUG] Refreshing project display...")
+    refresh_project_display()
+    print(f"[DEBUG] Loading car inputs...")
+    load_car_inputs(car_instance_id)
+    print(f"[DEBUG] ========== ADD CAR COMPLETE ==========\n")
+
+
+
+
+# === remove_car_from_project ===
+def remove_car_from_project(carid):
+    """Remove a car from the project"""
+    global selected_car_for_skin
+    
+    if carid in project_data["cars"]:
+        del project_data["cars"][carid]
+        
+        if selected_car_for_skin == carid:
+            selected_car_for_skin = None
+            # Clear inputs when removing selected car
+            skin_name_var.set("")
+            dds_path_var.set("")
+            dds_preview_label.configure(text="Preview", image=None)
+        
+        show_notification(f"Removed '{carid}' from project", "info", 2000)
+        refresh_project_display()
+
+
+
+# === select_car_for_skin ===
+def select_car_for_skin(carid):
+    """Select a car to add skins to"""
+    global selected_car_for_skin
+    
+    # Save current car's inputs before switching
+    if selected_car_for_skin:
+        save_current_car_inputs()
+    
+    selected_car_for_skin = carid
+    
+    # Load the new car's inputs
+    load_car_inputs(carid)
+    
+    refresh_project_display()
+    
+    # No notification - silent selection
+
+
+
+# === save_current_car_inputs ===
+def save_current_car_inputs():
+    """Save current input values to the selected car's temp storage"""
+    if selected_car_for_skin and selected_car_for_skin in project_data["cars"]:
+        project_data["cars"][selected_car_for_skin]["temp_skin_name"] = skin_name_var.get()
+        project_data["cars"][selected_car_for_skin]["temp_dds_path"] = dds_path_var.get()
+
+
+
+# === load_car_inputs ===
+def load_car_inputs(carid):
+    """Load saved input values for the specified car"""
+    if carid in project_data["cars"]:
+        skin_name_var.set(project_data["cars"][carid]["temp_skin_name"])
+        dds_path_var.set(project_data["cars"][carid]["temp_dds_path"])
+        
+        # Update DDS preview
+        if project_data["cars"][carid]["temp_dds_path"]:
+            load_dds_preview(project_data["cars"][carid]["temp_dds_path"])
+        else:
+            dds_preview_label.configure(text="Preview", image=None)
+
+
+
+# === add_skin_to_car ===
+def add_skin_to_car():
+    """Add a skin to the currently selected car"""
+    if not selected_car_for_skin:
+        show_notification("Please select a car from the project first", "error")
+        return
+    
+    skin_name = skin_name_var.get().strip()
+    dds_path = dds_path_var.get().strip()
+    
+    if not skin_name:
+        show_notification("Please enter a skin name", "error")
+        return
+    
+    if not dds_path:
+        show_notification("Please select a DDS file", "error")
+        return
+    
+    # Add skin to the selected car
+    project_data["cars"][selected_car_for_skin]["skins"].append({
+        "name": skin_name,
+        "dds_path": dds_path
+    })
+    
+    # Clear inputs for this car
+    skin_name_var.set("")
+    dds_path_var.set("")
+    project_data["cars"][selected_car_for_skin]["temp_skin_name"] = ""
+    project_data["cars"][selected_car_for_skin]["temp_dds_path"] = ""
+    dds_preview_label.configure(text="Preview", image=None)
+    
+    show_notification(f"✓ Added skin '{skin_name}' to {selected_car_for_skin}", "success", 2000)
+    refresh_project_display()
+
+
+
+# === remove_skin_from_car ===
+def remove_skin_from_car(carid, skin_index):
+    """Remove a skin from a car"""
+    if carid in project_data["cars"]:
+        skin = project_data["cars"][carid]["skins"][skin_index]
+        project_data["cars"][carid]["skins"].pop(skin_index)
+        show_notification(f"Removed skin '{skin['name']}' from {carid}", "info", 2000)
+        refresh_project_display()
+
+
+
+# === refresh_project_display ===
+def refresh_project_display():
+    """Refresh the project overview display"""
+    print(f"\n[DEBUG] ========== REFRESH PROJECT DISPLAY ==========")
+    print(f"[DEBUG] Current project data: {list(project_data['cars'].keys())}")
+    
+    # Clear existing widgets
+    for widget in project_overview_frame.winfo_children():
+        widget.destroy()
+    print(f"[DEBUG] Cleared existing widgets")
+    
+    if not project_data["cars"]:
+        print(f"[DEBUG] No cars in project - showing empty state")
+        empty_state = ctk.CTkFrame(project_overview_frame, fg_color="transparent")
+        empty_state.pack(expand=True, pady=40)
+        
+        ctk.CTkLabel(
+            empty_state,
+            text="📦",
+            font=ctk.CTkFont(size=48)
+        ).pack()
+        
+        ctk.CTkLabel(
+            empty_state,
+            text="No cars added yet",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=colors["text"]
+        ).pack(pady=(10, 5))
+        
+        ctk.CTkLabel(
+            empty_state,
+            text="Select a vehicle and click 'Add to Project' to get started",
+            font=ctk.CTkFont(size=12),
+            text_color=colors["text_secondary"]
+        ).pack()
+        print(f"[DEBUG] ========== REFRESH COMPLETE (EMPTY) ==========\n")
+        return
+    
+    # Get search query
+    search_query = get_real_value(project_search_entry, "🔍 Search cars...").lower().strip()
+    print(f"[DEBUG] Search query: '{search_query}'")
+    
+    # Filter cars based on search
+    filtered_cars = []
+    for car_instance_id, car_info in project_data["cars"].items():
+        base_carid = car_info.get("base_carid", car_instance_id)
+        car_name = VEHICLE_IDS.get(base_carid, base_carid)
+        for cid, cname in car_id_list:
+            if cid == base_carid:
+                car_name = cname
+                break
+        
+        # Check if search matches car name or ID
+        if not search_query or search_query in car_name.lower() or search_query in base_carid.lower():
+            filtered_cars.append((car_instance_id, car_info, base_carid, car_name))
+    
+    print(f"[DEBUG] Filtered {len(filtered_cars)} cars from {len(project_data['cars'])} total")
+    print(f"[DEBUG] Filtered car IDs: {[c[0] for c in filtered_cars]}")
+    
+    # Show "no results" if search filtered everything out
+    if not filtered_cars:
+        print(f"[DEBUG] No cars match search query")
+        no_results = ctk.CTkFrame(project_overview_frame, fg_color="transparent")
+        no_results.pack(expand=True, pady=40)
+        
+        ctk.CTkLabel(
+            no_results,
+            text="🔍",
+            font=ctk.CTkFont(size=48)
+        ).pack()
+        
+        ctk.CTkLabel(
+            no_results,
+            text="No cars found",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=colors["text"]
+        ).pack(pady=(10, 5))
+        
+        ctk.CTkLabel(
+            no_results,
+            text=f"No cars match '{search_query}'",
+            font=ctk.CTkFont(size=12),
+            text_color=colors["text_secondary"]
+        ).pack()
+        print(f"[DEBUG] ========== REFRESH COMPLETE (NO RESULTS) ==========\n")
+        return
+    
+    # Display filtered cars in 2-column grid
+    print(f"[DEBUG] Creating car cards in grid layout...")
+    row_frame = None
+    for index, (car_instance_id, car_info, base_carid, car_name) in enumerate(filtered_cars):
+        print(f"[DEBUG] Creating card #{index+1}: {car_instance_id} ({car_name})")
+        # Create new row frame every 2 cars
+        if index % 2 == 0:
+            row_frame = ctk.CTkFrame(project_overview_frame, fg_color="transparent")
+            row_frame.pack(fill="x", pady=3)
+            # Configure grid columns to be equal width
+            row_frame.grid_columnconfigure(0, weight=1)
+            row_frame.grid_columnconfigure(1, weight=1)
+        
+        # Add instance number if this is a duplicate
+        display_name = car_name
+        if "_" in car_instance_id and car_instance_id != base_carid:
+            instance_num = car_instance_id.split("_")[-1]
+            display_name = f"{car_name} (Instance #{instance_num})"
+        
+        # Determine column (0 or 1)
+        column = index % 2
+        
+        # Modern car card
+        is_selected = (selected_car_for_skin == car_instance_id)
+        
+        car_card = ctk.CTkFrame(
+            row_frame,
+            corner_radius=10,
+            fg_color=colors["accent"] if is_selected else colors["card_bg"],
+            border_width=2 if is_selected else 1,
+            border_color=colors["accent"] if is_selected else colors["border"],
+            cursor="hand2"
+        )
+        car_card.grid(row=0, column=column, sticky="ew", padx=3)
+        
+        # Make entire card clickable
+        car_card.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
+        
+        # Car header with modern layout
+        car_header = ctk.CTkFrame(car_card, fg_color="transparent", cursor="hand2")
+        car_header.pack(fill="x", padx=10, pady=8)
+        car_header.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
+        
+        # Left side: Icon + Info
+        left_side = ctk.CTkFrame(car_header, fg_color="transparent", cursor="hand2")
+        left_side.pack(side="left", fill="x", expand=True)
+        left_side.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
+        
+        ctk.CTkLabel(
+            left_side,
+            text="🚗",
+            font=ctk.CTkFont(size=18),
+            cursor="hand2"
+        ).pack(side="left", padx=(0, 8))
+        
+        info_container = ctk.CTkFrame(left_side, fg_color="transparent", cursor="hand2")
+        info_container.pack(side="left", fill="x", expand=True)
+        info_container.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
+        
+        car_label = ctk.CTkLabel(
+            info_container,
+            text=display_name,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=colors["accent_text"] if is_selected else colors["text"],
+            anchor="w",
+            cursor="hand2"
+        )
+        car_label.pack(anchor="w")
+        car_label.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
+        
+        id_label = ctk.CTkLabel(
+            info_container,
+            text=f"ID: {base_carid} • {len(car_info['skins'])} skin(s)",
+            font=ctk.CTkFont(size=10),
+            text_color=colors["accent_text"] if is_selected else colors["text_secondary"],
+            anchor="w",
+            cursor="hand2"
+        )
+        id_label.pack(anchor="w")
+        id_label.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
+        
+        # Right side: Buttons
+        button_container = ctk.CTkFrame(car_header, fg_color="transparent")
+        button_container.pack(side="right")
+        
+        # Selected indicator
+        if is_selected:
+            ctk.CTkLabel(
+                button_container,
+                text="● Selected",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color=colors["accent_text"]
+            ).pack(side="left", padx=(0, 8))
+        
+        # Remove button
+        remove_car_btn = ctk.CTkButton(
+            button_container,
+            text="✕",
+            width=28,
+            height=28,
+            fg_color=colors["error"],
+            hover_color=colors["error_hover"],
+            text_color="white",
+            corner_radius=6,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            command=lambda c=car_instance_id: remove_car_from_project(c)
+        )
+        remove_car_btn.pack(side="right")
+        
+        # Skins list with modern design
+        if car_info["skins"]:
+            skins_container = ctk.CTkFrame(
+                car_card,
+                fg_color=colors["frame_bg"] if not is_selected else colors["accent_hover"],
+                corner_radius=8
+            )
+            skins_container.pack(fill="x", padx=10, pady=(0, 8))
+            
+            for idx, skin in enumerate(car_info["skins"]):
+                skin_row = ctk.CTkFrame(
+                    skins_container,
+                    fg_color="transparent",
+                    height=32
+                )
+                skin_row.pack(fill="x", padx=6, pady=2)
+                
+                ctk.CTkLabel(
+                    skin_row,
+                    text="🎨",
+                    font=ctk.CTkFont(size=12)
+                ).pack(side="left", padx=(4, 6))
+                
+                skin_label = ctk.CTkLabel(
+                    skin_row,
+                    text=skin['name'],
+                    text_color=colors["text"],
+                    anchor="w",
+                    font=ctk.CTkFont(size=11)
+                )
+                skin_label.pack(side="left", fill="x", expand=True)
+                
+                remove_skin_btn = ctk.CTkButton(
+                    skin_row,
+                    text="✕",
+                    width=24,
+                    height=24,
+                    fg_color=colors["error"],
+                    hover_color=colors["error_hover"],
+                    text_color="white",
+                    font=ctk.CTkFont(size=12),
+                    corner_radius=6,
+                    command=lambda c=car_instance_id, i=idx: remove_skin_from_car(c, i)
+                )
+                remove_skin_btn.pack(side="right", padx=4)
+    
+    # Update the current car label
+    update_current_car_label()
+    print(f"[DEBUG] ========== REFRESH COMPLETE (SUCCESS - {len(filtered_cars)} cars displayed) ==========\n")
+
+
+
+# === generate_multi_skin_mod ===
+def generate_multi_skin_mod():
+    """Generate the mod with all cars and skins"""
+    global project_data
+    
+    print("\n" + "="*50)
+    print("MULTI-SKIN MOD GENERATION INITIATED")
+    print("="*50)
+    
+    # Validation
+    mod_name = get_real_value(mod_name_entry_sidebar, "Enter mod name...").strip()
+    author_name = get_real_value(author_entry_sidebar, "Your name...").strip()
+    
+    if not mod_name:
+        show_notification("Please enter a ZIP name", "error")
+        return
+    
+    if not project_data["cars"]:
+        show_notification("Please add at least one car to the project", "error")
+        return
+    
+    # Check if all cars have at least one skin
+    cars_without_skins = []
+    for carid, car_info in project_data["cars"].items():
+        if not car_info["skins"]:
+            cars_without_skins.append(carid)
+    
+    if cars_without_skins:
+        show_notification(f"Please add skins to: {', '.join(cars_without_skins)}", "error", 4000)
+        return
+    
+    output_path = custom_output_var.get() if output_mode_var.get() == "custom" else None
+    
+    # Update project data
+    project_data["mod_name"] = mod_name
+    project_data["author"] = author_name if author_name else "Unknown"
+    
+    print(f"Mod Name: {mod_name}")
+    print(f"Author: {project_data['author']}")
+    print(f"Cars: {len(project_data['cars'])}")
+    total_skins = sum(len(car_info['skins']) for car_info in project_data['cars'].values())
+    print(f"Total Skins: {total_skins}")
+    
+    export_status_label.configure(text="Preparing to export...")
+    export_status_label.pack(padx=20, pady=(10,5))
+    progress_bar.pack(fill="x", padx=20, pady=(0,5))
+    progress_bar.set(0)
+    generate_button_topbar.configure(state="disabled")  # Changed from generate_button to generate_button_topbar
+
+    def update_status(message):
+        """Update the status label text"""
+        export_status_label.configure(text=message)
+
+    def thread_fn():
+        try:
+            print("\nStarting mod generation thread...")
+            update_status("Processing skins...")
+            
+            # Create custom progress callback
+            def progress_with_status(value):
+                update_progress(value)
+                if value < 0.3:
+                    update_status("Copying template files...")
+                elif value < 0.7:
+                    update_status(f"Processing {total_skins} skins...")
+                else:
+                    update_status("Creating ZIP archive...")
+            
+            # Import and call the multi-skin generator
+            from file_ops import generate_multi_skin_mod as gen_multi
+            gen_multi(
+                project_data,
+                output_path=output_path,
+                progress_callback=progress_with_status
+            )
+            
+            update_status("Export completed successfully!")
+            print("Mod generation completed successfully!")
+            print("="*50 + "\n")
+            show_notification(f"✓ Mod '{mod_name}' created with {total_skins} skins!", "success", 5000)
+            
+            # Ask if user wants to clear project
+            app.after(2000, lambda: show_notification("Project kept. Click 'Clear Project' to start new one.", "info", 4000))
+            
+        except FileExistsError as e:
+            update_status("Error: File already exists")
+            print(f"ERROR: File already exists - {e}")
+            show_notification(f"File already exists: {str(e)}", "error", 5000)
+        except Exception as e:
+            update_status("Error: Export failed")
+            print(f"ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            show_notification(f"Error: {str(e)}", "error", 5000)
+        finally:
+            progress_bar.set(0)
+            generate_button_topbar.configure(state="normal")  # Changed from generate_button to generate_button_topbar
+            # Hide progress bar and status after a short delay
+            app.after(2000, lambda: progress_bar.pack_forget())
+            app.after(2000, lambda: export_status_label.pack_forget())
+
+    threading.Thread(target=thread_fn, daemon=True).start()
+
+
+
+
+
+
+# === on_generate ===
 def on_generate():
     global selected_carid
     
@@ -879,777 +2356,461 @@ def on_generate():
 
     threading.Thread(target=thread_fn, daemon=True).start()
 
-# -----------------------
-# Header
-# -----------------------
-header_frame = ctk.CTkFrame(app, corner_radius=12, fg_color=colors["frame_bg"])
-header_frame.pack(fill="x")
-ctk.CTkLabel(header_frame, text="BeamSkin Studio", font=ctk.CTkFont(size=20, weight="bold"), text_color=colors["text"]).pack(padx=20, pady=10)
 
-# -----------------------
-# Global Notification System
-# -----------------------
-notification_label = ctk.CTkLabel(app, text="", font=ctk.CTkFont(size=12, weight="bold"), 
-                                  fg_color=colors["card_bg"], corner_radius=8, height=40)
-notification_label.pack_forget()
 
+# === create_modern_card ===
+def create_modern_card(parent, title=None, subtitle=None):
+    """Create a modern card with optional title and subtitle"""
+    card = ctk.CTkFrame(
+        parent,
+        corner_radius=16,
+        fg_color=colors["card_bg"],
+        border_width=1,
+        border_color=colors["border"]
+    )
+    
+    if title:
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=20, pady=(15, 5 if subtitle else 15))
+        
+        ctk.CTkLabel(
+            header,
+            text=title,
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=colors["text"],
+            anchor="w"
+        ).pack(side="left")
+        
+        if subtitle:
+            ctk.CTkLabel(
+                card,
+                text=subtitle,
+                font=ctk.CTkFont(size=11),
+                text_color=colors["text_secondary"],
+                anchor="w"
+            ).pack(fill="x", padx=20, pady=(0, 15))
+    
+    return card
+
+
+
+# === create_modern_button ===
+def create_modern_button(parent, text, command, style="primary", **kwargs):
+    """Create a modern styled button"""
+    styles = {
+        "primary": {
+            "fg_color": colors["accent"],
+            "hover_color": colors["accent_hover"],
+            "text_color": colors["accent_text"],
+            "height": 40,
+            "corner_radius": 12,
+            "font": ctk.CTkFont(size=13, weight="bold"),
+            "border_width": 0
+        },
+        "secondary": {
+            "fg_color": colors["card_bg"],
+            "hover_color": colors["card_hover"],
+            "text_color": colors["text"],
+            "height": 38,
+            "corner_radius": 12,
+            "font": ctk.CTkFont(size=13),
+            "border_width": 1,
+            "border_color": colors["border"]
+        },
+        "danger": {
+            "fg_color": colors["error"],
+            "hover_color": colors["error_hover"],
+            "text_color": "white",
+            "height": 38,
+            "corner_radius": 12,
+            "font": ctk.CTkFont(size=13, weight="bold"),
+            "border_width": 0
+        },
+        "ghost": {
+            "fg_color": "transparent",
+            "hover_color": colors["card_hover"],
+            "text_color": colors["text"],
+            "height": 36,
+            "corner_radius": 10,
+            "font": ctk.CTkFont(size=12),
+            "border_width": 1,
+            "border_color": colors["border"]
+        }
+    }
+    
+    button_style = styles.get(style, styles["primary"])
+    button_style.update(kwargs)
+    
+    return ctk.CTkButton(parent, text=text, command=command, **button_style)
+
+
+
+# === create_modern_input ===
+def create_modern_input(parent, label, variable, **kwargs):
+    """Create a modern input field with label"""
+    container = ctk.CTkFrame(parent, fg_color="transparent")
+    
+    ctk.CTkLabel(
+        container,
+        text=label,
+        font=ctk.CTkFont(size=12, weight="bold"),
+        text_color=colors["text"],
+        anchor="w"
+    ).pack(fill="x", pady=(0, 8))
+    
+    input_style = {
+        "fg_color": colors["frame_bg"],
+        "border_width": 1,
+        "border_color": colors["border"],
+        "corner_radius": 10,
+        "height": 40,
+        "font": ctk.CTkFont(size=13),
+        "text_color": colors["text"]
+    }
+    input_style.update(kwargs)
+    
+    entry = ctk.CTkEntry(container, textvariable=variable, **input_style)
+    entry.pack(fill="x")
+    
+    return container
+
+
+
+
+
+
+# === show_notification ===
 def show_notification(message, type="info", duration=3000):
     """
-    Show a notification message at the top of the app
-    type: "success", "error", "info", "warning"
-    duration: how long to show in milliseconds (0 = don't auto-hide)
+    Overlays a notification at the top of the app.
+    Types: 'info', 'success', 'warning', 'error'
     """
-    # Set color based on type
-    if type == "success":
-        bg_color = "#2D5F3F"  # Dark green
-        text_color = "#39E09B"  # Light green
-    elif type == "error":
-        bg_color = "#5F2D2D"  # Dark red
-        text_color = "#E03939"  # Light red
-    elif type == "warning":
-        bg_color = "#5F4F2D"  # Dark yellow
-        text_color = "#E0B939"  # Light yellow
-    else:  # info
-        bg_color = colors["card_bg"]
-        text_color = colors["accent"]
-    
-    notification_label.configure(text=message, fg_color=bg_color, text_color=text_color)
-    notification_label.pack(fill="x", padx=20, pady=(10,0))
-    
-    # Auto-hide after duration if specified
-    if duration > 0:
-        app.after(duration, lambda: notification_label.pack_forget())
+    # Create notification frame if it doesn't exist or was destroyed
+    global notification_frame
+    try:
+        if notification_frame.winfo_exists():
+            for child in notification_frame.winfo_children():
+                child.destroy()
+    except:
+        notification_frame = ctk.CTkFrame(app, fg_color="transparent")
 
+    # Icon mapping
+    icons = {
+        "success": "✓",
+        "error": "✕",
+        "warning": "⚠",
+        "info": "ℹ"
+    }
+    
+    # Color schemes
+    colors_map = {
+        "success": {"bg": colors["success"], "text": colors["accent_text"]},
+        "error": {"bg": colors["error"], "text": "white"},
+        "warning": {"bg": colors["warning"], "text": colors["accent_text"]},
+        "info": {"bg": colors["accent"], "text": colors["accent_text"]}
+    }
+    
+    color_scheme = colors_map.get(type, colors_map["info"])
+    icon = icons.get(type, "ℹ")
+    
+    # Clear previous notification
+    for widget in notification_frame.winfo_children():
+        widget.destroy()
+    
+    # Calculate dynamic width based on message length
+    # Approximate: 8 pixels per character + padding + icon space
+    base_width = 100  # Icon + padding space
+    char_width = 9  # Approximate pixels per character
+    calculated_width = base_width + (len(message) * char_width)
+    
+    # Set min and max bounds
+    min_width = 300
+    max_width = 1200
+    notification_width = max(min_width, min(calculated_width, max_width))
+    
+    # Create notification content with dynamic width
+    notification_content = ctk.CTkFrame(
+        notification_frame,
+        fg_color=color_scheme["bg"],
+        corner_radius=12,
+        width=notification_width,
+        height=50
+    )
+    notification_content.pack(padx=0, pady=10)
+    notification_content.pack_propagate(False)
+    
+    # Icon
+    ctk.CTkLabel(
+        notification_content,
+        text=icon,
+        font=ctk.CTkFont(size=20, weight="bold"),
+        text_color=color_scheme["text"],
+        width=40
+    ).pack(side="left", padx=(15, 5))
+    
+    # Message
+    ctk.CTkLabel(
+        notification_content,
+        text=message,
+        font=ctk.CTkFont(size=13, weight="bold"),
+        text_color=color_scheme["text"],
+        anchor="w"
+    ).pack(side="left", fill="x", expand=True, padx=(5, 15))
+    
+    # Show notification using place() to overlay it - NO width/height parameters here
+    # Position it below the topbar (60px from top), centered
+    notification_frame.place(relx=0.5, y=60, anchor="n")
+    
+    # Raise it to the top of the stacking order
+    notification_frame.lift()
+    
+    # Auto-hide
+    if duration > 0:
+        app.after(duration, lambda: notification_frame.place_forget())
+
+
+# === hide_notification ===
 def hide_notification():
     """Manually hide the notification"""
     notification_label.pack_forget()
 
-# -----------------------
-# Tabs with spacing
-# -----------------------
-tabview = ctk.CTkTabview(app, segmented_button_fg_color=colors["frame_bg"], 
-                         segmented_button_selected_color=colors["tab_selected"],
-                         segmented_button_selected_hover_color=colors["tab_selected_hover"],
-                         segmented_button_unselected_color=colors["tab_unselected"],
-                         segmented_button_unselected_hover_color=colors["tab_unselected_hover"],
-                         height=40)
-tabview.pack(fill="both", expand=True, padx=20, pady=10)
 
-# Configure tab button font size and text color
-tabview._segmented_button.configure(
-    font=ctk.CTkFont(size=13, weight="bold"),
-    text_color=colors["text"],
-    text_color_disabled=colors["text"]
-)
 
-generator_tab = tabview.add("    Generator    ")
-howto_tab = tabview.add("    How to Use    ")
-carlist_tab = tabview.add("    Car ID List    ")
-settings_tab = tabview.add("    Settings    ")
-about_tab = tabview.add("    About    ")
-
-# -----------------------
-# Generator Tab - Multi-Car/Multi-Skin System
-# -----------------------
-
-# Store the current project data
-project_data = {
-    "mod_name": "",
-    "author": "",
-    "cars": {}  # carid -> {"skins": [{"name": "skinname", "dds_path": "path"}], "temp_skin_name": "", "temp_dds_path": ""}
-}
-
-selected_car_for_skin = None  # Currently selected car for adding skins
-current_project_widgets = []  # Store widget references for updates
-vehicle_buttons = []
-vehicle_panel_visible = False
-
-def toggle_vehicle_panel():
-    global vehicle_panel_visible
-    if vehicle_panel_visible:
-        vehicle_panel.pack_forget()
-        vehicle_panel_visible = False
-        select_vehicle_button.configure(
-            text="Select Vehicle",
-            fg_color=colors["card_bg"],
-            hover_color=colors["card_hover"]
+# === show_wip_warning ===
+def show_wip_warning():
+    """Show Work-In-Progress warning dialog on first launch"""
+    global app_settings
+    
+    print(f"\n[DEBUG] ========== WIP WARNING CHECK ==========")
+    print(f"[DEBUG] first_launch setting: {app_settings.get('first_launch', True)}")
+    
+    if app_settings.get("first_launch", True):
+        print(f"[DEBUG] First launch detected - showing WIP warning dialog")
+        # Create warning dialog
+        dialog = ctk.CTkToplevel(app)
+        dialog.title("Welcome to BeamSkin Studio")
+        dialog.geometry("600x550")
+        dialog.transient(app)
+        dialog.grab_set()
+        print(f"[DEBUG] Dialog created")
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        dialog_x = (dialog.winfo_screenwidth() // 2) - (600 // 2)
+        dialog_y = (dialog.winfo_screenheight() // 2) - (550 // 2)
+        dialog.geometry(f"600x550+{dialog_x}+{dialog_y}")
+        print(f"[DEBUG] Dialog centered at ({dialog_x}, {dialog_y})")
+        
+        # Configure colors
+        dialog.configure(fg_color=colors["frame_bg"])
+        
+        # Main frame
+        main_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Warning icon and title
+        title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        title_frame.pack(pady=(0, 20))
+        
+        ctk.CTkLabel(
+            title_frame,
+            text="⚠️",
+            font=ctk.CTkFont(size=48),
+            text_color=colors["text"]
+        ).pack()
+        
+        ctk.CTkLabel(
+            title_frame,
+            text="Work-In-Progress Software",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color=colors["text"]
+        ).pack(pady=(10, 0))
+        
+        # Message
+        message_frame = ctk.CTkFrame(main_frame, fg_color=colors["card_bg"], corner_radius=12)
+        message_frame.pack(fill="both", expand=True, pady=(0, 20))
+        
+        message_text = (
+            "BeamSkin Studio is currently in active development.\n\n"
+            "Please be aware that:\n\n"
+            "• Bugs and errors should be expected\n"
+            "• Some features may not work as intended\n"
+            "• Data loss or unexpected behavior may occur\n"
+            "• Regular updates and changes are being made\n\n"
+            "Known Limitations:\n\n"
+            "• Car variations are NOT supported yet\n"
+            "  (e.g., Ambulance, Box Truck, Sedan, Wagon)\n"
+            "• Modded cars added via Developer tab\n"
+            "  most likely won't work properly\n\n"
+            "Thank you for your patience and understanding!"
         )
+        
+        ctk.CTkLabel(
+            message_frame,
+            text=message_text,
+            font=ctk.CTkFont(size=13),
+            text_color=colors["text"],
+            justify="left"
+        ).pack(padx=20, pady=20)
+        
+        # Checkbox to not show again
+        dont_show_var = ctk.BooleanVar(value=False)
+        checkbox = ctk.CTkCheckBox(
+            main_frame,
+            text="Don't show this message again",
+            variable=dont_show_var,
+            font=ctk.CTkFont(size=12),
+            text_color=colors["text"]
+        )
+        checkbox.pack(pady=(0, 10))
+        
+        # OK button
+        def on_ok():
+            print(f"[DEBUG] User clicked 'I Understand'")
+            print(f"[DEBUG] Don't show again checkbox: {dont_show_var.get()}")
+            if dont_show_var.get():
+                app_settings["first_launch"] = False
+                save_settings()
+                print("[DEBUG] First launch warning disabled and settings saved")
+            dialog.destroy()
+            print(f"[DEBUG] Dialog closed")
+        
+        ctk.CTkButton(
+            main_frame,
+            text="I Understand",
+            command=on_ok,
+            fg_color=colors["accent"],
+            hover_color=colors["accent_hover"],
+            text_color=colors["accent_text"],
+            font=ctk.CTkFont(size=14, weight="bold"),
+            height=40,
+            width=200
+        ).pack()
+        
+        print(f"[DEBUG] Waiting for user to close dialog...")
+        # Wait for dialog to close
+        app.wait_window(dialog)
+        print(f"[DEBUG] ========== WIP WARNING COMPLETE ==========\n")
     else:
-        vehicle_panel.pack(fill="x", padx=10, pady=(0,10), after=vehicle_display_entry)
-        vehicle_panel_visible = True
-        vehicle_search_entry.focus_set()
-        select_vehicle_button.configure(
-            text="Close",
-            fg_color=colors["error"],
-            hover_color=colors["error_hover"]
-        )
+        print(f"[DEBUG] Not first launch - skipping WIP warning")
+        print(f"[DEBUG] ========== WIP WARNING SKIPPED ==========\n")
 
-def select_vehicle(carid):
-    global selected_carid
-    
-    # Store the actual carid globally
-    selected_carid = carid
-    
-    # Find and display the car name
-    display_name = carid
-    for btn, cid, dname in vehicle_buttons:
-        if cid == carid:
-            display_name = dname
-            break
-    
-    print(f"Vehicle selected: {display_name} (ID: {carid})")
-    vehicle_display_var.set(display_name)  # Show the display name in UI
-    
-    # Update button colors
-    for btn, cid, dname in vehicle_buttons:
-        btn.configure(fg_color=colors["card_bg"] if cid != carid else "blue")
-    
-    toggle_vehicle_panel()
 
-def update_vehicle_list(*args):
-    query = vehicle_search_var.get().lower()
-    for btn, carid, display_name in vehicle_buttons:
-        btn.master.pack_forget()
-        if query in carid.lower() or query in display_name.lower():
-            btn.master.pack(fill="x", pady=3, padx=5)
-    vehicle_scroll_frame._parent_canvas.yview_moveto(0)
 
-def _on_vehicle_mousewheel(event):
-    scroll_amount = int(-1 * (event.delta / 120) * 15)
-    vehicle_scroll_frame._parent_canvas.yview_scroll(scroll_amount, "units")
-    return "break"
+# === toggle_theme ===
+def toggle_theme():
+    """Toggle between light and dark theme"""
+    global current_theme, colors
+    
+    # Ask user if they want to restart
+    response = messagebox.askyesno(
+        "Restart Required", 
+        "Changing the theme requires restarting the application.\n\n"
+        "⚠️ WARNING: Any unsaved changes will be lost!\n\n"
+        "Do you want to restart now?",
+        icon='warning'
+    )
+    
+    if response:
+        # Switch theme
+        current_theme = "light" if current_theme == "dark" else "dark"
+        colors = THEMES[current_theme]
+        
+        # Save setting
+        app_settings["theme"] = current_theme
+        save_settings()
+        
+        print(f"Theme changed to: {current_theme}")
+        print("Restarting application...")
+        
+        # Restart the application
+        import sys
+        import subprocess
+        
+        # Close current app
+        app.destroy()
+        
+        # Restart with same script
+        subprocess.Popen([sys.executable] + sys.argv)
+        sys.exit()
+    else:
+        # User cancelled, revert the switch
+        if current_theme == "dark":
+            theme_switch.deselect()
+        else:
+            theme_switch.select()
 
-def bind_tree(widget, event, callback):
-    widget.bind(event, callback)
-    for child in widget.winfo_children():
-        bind_tree(child, event, callback)
 
+
+# === update_progress ===
 def update_progress(value):
     if progress_bar.winfo_ismapped():
         progress_bar.set(value)
 
-def clear_project():
-    """Clear the current project"""
-    global project_data, selected_car_for_skin
-    project_data = {
-        "mod_name": "",
-        "author": "",
-        "cars": {}
-    }
-    selected_car_for_skin = None
-    mod_name_var.set("")
-    author_var.set("")
-    skin_name_var.set("")
-    dds_path_var.set("")
-    dds_preview_label.configure(text="Preview", image=None)
-    refresh_project_display()
-    show_notification("Project cleared", "info", 2000)
 
-def save_project():
-    """Save the current project to a file"""
-    global project_data
-    
-    # Save current inputs before saving
-    if selected_car_for_skin:
-        save_current_car_inputs()
-    
-    # Update project data with current form values
-    project_data["mod_name"] = mod_name_var.get()
-    project_data["author"] = author_var.get()
-    
-    if not project_data["cars"]:
-        show_notification("No cars in project to save", "warning", 3000)
-        return
-    
-    # Ask for save location
-    file_path = filedialog.asksaveasfilename(
-        title="Save Project",
-        defaultextension=".bsproject",
-        filetypes=[("BeamSkin Project", "*.bsproject"), ("All Files", "*.*")]
-    )
-    
-    if file_path:
-        try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(project_data, f, indent=4)
-            show_notification(f"✓ Project saved to {os.path.basename(file_path)}", "success", 3000)
-            print(f"Project saved to: {file_path}")
-        except Exception as e:
-            show_notification(f"Failed to save project: {str(e)}", "error", 4000)
-            print(f"ERROR saving project: {e}")
 
-def load_project():
-    """Load a project from a file"""
-    global project_data, selected_car_for_skin
-    
-    # Ask for file to load
-    file_path = filedialog.askopenfilename(
-        title="Load Project",
-        filetypes=[("BeamSkin Project", "*.bsproject"), ("All Files", "*.*")]
-    )
-    
-    if file_path:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                loaded_data = json.load(f)
-            
-            # Validate loaded data
-            if "cars" not in loaded_data:
-                show_notification("Invalid project file", "error", 3000)
-                return
-            
-            # Check if all DDS files still exist
-            missing_files = []
-            for car_id, car_info in loaded_data["cars"].items():
-                for skin in car_info.get("skins", []):
-                    dds_path = skin.get("dds_path", "")
-                    if dds_path and not os.path.exists(dds_path):
-                        # Get car name for better error message
-                        base_carid = car_info.get("base_carid", car_id)
-                        car_name = VEHICLE_IDS.get(base_carid, base_carid)
-                        for cid, cname in car_id_list:
-                            if cid == base_carid:
-                                car_name = cname
-                                break
-                        
-                        missing_files.append({
-                            "car": car_name,
-                            "car_id": car_id,
-                            "skin": skin.get("name", "Unknown"),
-                            "path": dds_path
-                        })
-            
-            # If there are missing files, show error and don't load
-            if missing_files:
-                error_message = "Cannot load project - Missing DDS files:\n\n"
-                for missing in missing_files:
-                    error_message += f"• {missing['car']} - Skin '{missing['skin']}':\n  {missing['path']}\n\n"
-                
-                messagebox.showerror(
-                    "Missing Files",
-                    error_message.strip()
-                )
-                print(f"Project load failed - Missing files:")
-                for missing in missing_files:
-                    print(f"  {missing['car']} ({missing['car_id']}) - {missing['skin']}: {missing['path']}")
-                return
-            
-            # Load the project
-            project_data = loaded_data
-            selected_car_for_skin = None
-            
-            # Update form fields
-            mod_name_var.set(project_data.get("mod_name", ""))
-            author_var.set(project_data.get("author", ""))
-            skin_name_var.set("")
-            dds_path_var.set("")
-            dds_preview_label.configure(text="Preview", image=None)
-            
-            # Refresh display
-            refresh_project_display()
-            
-            car_count = len(project_data["cars"])
-            total_skins = sum(len(car_info['skins']) for car_info in project_data['cars'].values())
-            show_notification(f"✓ Loaded project: {car_count} cars, {total_skins} skins", "success", 4000)
-            print(f"Project loaded from: {file_path}")
-            
-        except Exception as e:
-            show_notification(f"Failed to load project: {str(e)}", "error", 4000)
-            print(f"ERROR loading project: {e}")
 
-def add_car_to_project():
-    """Add selected car to the project (can add same car multiple times)"""
-    global selected_car_for_skin
-    
-    if not selected_carid:
-        show_notification("Please select a vehicle first", "error")
-        return
-    
-    # Generate unique ID for this car instance (carid + counter)
-    base_carid = selected_carid
-    car_instance_id = base_carid
-    counter = 1
-    
-    # Find unique instance ID if car already exists
-    while car_instance_id in project_data["cars"]:
-        counter += 1
-        car_instance_id = f"{base_carid}_{counter}"
-    
-    # Add car with empty skins list and temp input fields
-    project_data["cars"][car_instance_id] = {
-        "base_carid": base_carid,  # Store original carid for generation
-        "skins": [],
-        "temp_skin_name": "",
-        "temp_dds_path": ""
-    }
-    selected_car_for_skin = car_instance_id
-    
-    # Get car name
-    car_name = VEHICLE_IDS.get(base_carid, base_carid)
-    for cid, cname in car_id_list:
-        if cid == base_carid:
-            car_name = cname
-            break
-    
-    instance_text = f" (Instance #{counter})" if counter > 1 else ""
-    show_notification(f"✓ Added '{car_name}'{instance_text} to project", "success", 2000)
-    refresh_project_display()
-    load_car_inputs(car_instance_id)
-
-def remove_car_from_project(carid):
-    """Remove a car from the project"""
-    global selected_car_for_skin
-    
-    if carid in project_data["cars"]:
-        del project_data["cars"][carid]
-        
-        if selected_car_for_skin == carid:
-            selected_car_for_skin = None
-            # Clear inputs when removing selected car
-            skin_name_var.set("")
-            dds_path_var.set("")
-            dds_preview_label.configure(text="Preview", image=None)
-        
-        show_notification(f"Removed '{carid}' from project", "info", 2000)
-        refresh_project_display()
-
-def save_current_car_inputs():
-    """Save current input values to the selected car's temp storage"""
-    if selected_car_for_skin and selected_car_for_skin in project_data["cars"]:
-        project_data["cars"][selected_car_for_skin]["temp_skin_name"] = skin_name_var.get()
-        project_data["cars"][selected_car_for_skin]["temp_dds_path"] = dds_path_var.get()
-
-def load_car_inputs(carid):
-    """Load saved input values for the specified car"""
-    if carid in project_data["cars"]:
-        skin_name_var.set(project_data["cars"][carid]["temp_skin_name"])
-        dds_path_var.set(project_data["cars"][carid]["temp_dds_path"])
-        
-        # Update DDS preview
-        if project_data["cars"][carid]["temp_dds_path"]:
-            load_dds_preview(project_data["cars"][carid]["temp_dds_path"])
-        else:
-            dds_preview_label.configure(text="Preview", image=None)
-
-def add_skin_to_car():
-    """Add a skin to the currently selected car"""
-    if not selected_car_for_skin:
-        show_notification("Please select a car from the project first", "error")
-        return
-    
-    skin_name = skin_name_var.get().strip()
-    dds_path = dds_path_var.get().strip()
-    
-    if not skin_name:
-        show_notification("Please enter a skin name", "error")
-        return
-    
-    if not dds_path:
-        show_notification("Please select a DDS file", "error")
-        return
-    
-    # Add skin to the selected car
-    project_data["cars"][selected_car_for_skin]["skins"].append({
-        "name": skin_name,
-        "dds_path": dds_path
-    })
-    
-    # Clear inputs for this car
-    skin_name_var.set("")
-    dds_path_var.set("")
-    project_data["cars"][selected_car_for_skin]["temp_skin_name"] = ""
-    project_data["cars"][selected_car_for_skin]["temp_dds_path"] = ""
-    dds_preview_label.configure(text="Preview", image=None)
-    
-    show_notification(f"✓ Added skin '{skin_name}' to {selected_car_for_skin}", "success", 2000)
-    refresh_project_display()
-
-def select_car_for_skin(carid):
-    """Select a car to add skins to"""
-    global selected_car_for_skin
-    
-    # Save current car's inputs before switching
-    if selected_car_for_skin:
-        save_current_car_inputs()
-    
-    selected_car_for_skin = carid
-    
-    # Load the new car's inputs
-    load_car_inputs(carid)
-    
-    refresh_project_display()
-    
-    # Get car name
-    car_name = VEHICLE_IDS.get(carid, carid)
-    for cid, cname in car_id_list:
-        if cid == carid:
-            car_name = cname
-            break
-    
-    show_notification(f"Selected '{car_name}' - Add skins below", "info", 2000)
-
-def remove_skin_from_car(carid, skin_index):
-    """Remove a skin from a car"""
-    if carid in project_data["cars"]:
-        skin = project_data["cars"][carid]["skins"][skin_index]
-        project_data["cars"][carid]["skins"].pop(skin_index)
-        show_notification(f"Removed skin '{skin['name']}' from {carid}", "info", 2000)
-        refresh_project_display()
-
-def refresh_project_display():
-    """Refresh the project overview display"""
-    # Clear existing widgets
-    for widget in project_overview_frame.winfo_children():
-        widget.destroy()
-    
-    if not project_data["cars"]:
-        ctk.CTkLabel(
-            project_overview_frame,
-            text="No cars added yet. Select a vehicle and click 'Add Car to Project'.",
-            text_color=colors["text_secondary"],
-            font=ctk.CTkFont(size=12)
-        ).pack(pady=20)
-        return
-    
-    # Display each car and its skins
-    for car_instance_id, car_info in project_data["cars"].items():
-        # Get base carid (for multiple instances of same car)
-        base_carid = car_info.get("base_carid", car_instance_id)
-        
-        # Get car name
-        car_name = VEHICLE_IDS.get(base_carid, base_carid)
-        for cid, cname in car_id_list:
-            if cid == base_carid:
-                car_name = cname
-                break
-        
-        # Add instance number if this is a duplicate
-        display_name = car_name
-        if "_" in car_instance_id and car_instance_id != base_carid:
-            instance_num = car_instance_id.split("_")[-1]
-            display_name = f"{car_name} (Instance #{instance_num})"
-        
-        # Car card
-        is_selected = (selected_car_for_skin == car_instance_id)
-        car_card = ctk.CTkFrame(
-            project_overview_frame,
-            corner_radius=12,
-            fg_color=colors["accent"] if is_selected else colors["card_bg"],
-            border_width=2,
-            border_color=colors["accent"] if is_selected else colors["border"],
-            cursor="hand2"  # Show hand cursor
-        )
-        car_card.pack(fill="x", padx=5, pady=5)
-        
-        # Make entire card clickable
-        car_card.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-        
-        # Car header
-        car_header = ctk.CTkFrame(car_card, fg_color="transparent", cursor="hand2")
-        car_header.pack(fill="x", padx=8, pady=6)
-        car_header.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-        
-        car_label = ctk.CTkLabel(
-            car_header,
-            text=f"🚗 {display_name} ({base_carid})",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=colors["accent_text"] if is_selected else colors["text"],
-            anchor="w",
-            cursor="hand2"
-        )
-        car_label.pack(side="left", fill="x", expand=True)
-        car_label.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-        
-        # Selected indicator (no select button needed - just visual indicator)
-        if is_selected:
-            selected_indicator = ctk.CTkLabel(
-                car_header,
-                text="● Selected",
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=colors["accent_text"]
-            )
-            selected_indicator.pack(side="right", padx=5)
-            selected_indicator.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-        
-        # Remove car button (prevent click propagation)
-        remove_car_btn = ctk.CTkButton(
-            car_header,
-            text="Remove",
-            width=80,
-            height=28,
-            fg_color=colors["error"],
-            hover_color=colors["error_hover"],
-            text_color=colors["accent_text"],
-            command=lambda c=car_instance_id: remove_car_from_project(c)
-        )
-        remove_car_btn.pack(side="right", padx=5)
-        
-        # Skins list
-        skins_frame = ctk.CTkFrame(car_card, fg_color="transparent", cursor="hand2")
-        skins_frame.pack(fill="x", padx=8, pady=(0, 8))
-        skins_frame.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-        
-        if not car_info["skins"]:
-            no_skins_label = ctk.CTkLabel(
-                skins_frame,
-                text="No skins added yet - Click to add skins",
-                text_color=colors["text_secondary"] if not is_selected else colors["accent_text"],
-                font=ctk.CTkFont(size=11),
-                cursor="hand2"
-            )
-            no_skins_label.pack(anchor="w", padx=5, pady=3)
-            no_skins_label.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-        else:
-            for idx, skin in enumerate(car_info["skins"]):
-                skin_row = ctk.CTkFrame(skins_frame, corner_radius=8, fg_color=colors["frame_bg"], cursor="hand2")
-                skin_row.pack(fill="x", pady=2, padx=5)
-                skin_row.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-                
-                skin_label = ctk.CTkLabel(
-                    skin_row,
-                    text=f"  • {skin['name']}",
-                    text_color=colors["text"],
-                    anchor="w",
-                    font=ctk.CTkFont(size=11),
-                    cursor="hand2"
-                )
-                skin_label.pack(side="left", fill="x", expand=True, padx=5, pady=5)
-                skin_label.bind("<Button-1>", lambda e, c=car_instance_id: select_car_for_skin(c))
-                
-                remove_skin_btn = ctk.CTkButton(
-                    skin_row,
-                    text="Remove",
-                    width=70,
-                    height=24,
-                    fg_color=colors["error"],
-                    hover_color=colors["error_hover"],
-                    text_color=colors["accent_text"],
-                    font=ctk.CTkFont(size=10),
-                    command=lambda c=car_instance_id, i=idx: remove_skin_from_car(c, i)
-                )
-                remove_skin_btn.pack(side="right", padx=5, pady=3)
-    
-    # Update the current car label
-    update_current_car_label()
-
-def generate_multi_skin_mod():
-    """Generate the mod with all cars and skins"""
-    global project_data
-    
-    print("\n" + "="*50)
-    print("MULTI-SKIN MOD GENERATION INITIATED")
-    print("="*50)
-    
-    # Validation
-    mod_name = mod_name_var.get().strip()
-    author_name = author_var.get().strip()
-    
-    if not mod_name:
-        show_notification("Please enter a ZIP name", "error")
-        return
-    
-    if not project_data["cars"]:
-        show_notification("Please add at least one car to the project", "error")
-        return
-    
-    # Check if all cars have at least one skin
-    cars_without_skins = []
-    for carid, car_info in project_data["cars"].items():
-        if not car_info["skins"]:
-            cars_without_skins.append(carid)
-    
-    if cars_without_skins:
-        show_notification(f"Please add skins to: {', '.join(cars_without_skins)}", "error", 4000)
-        return
-    
-    output_path = custom_output_var.get() if output_mode_var.get() == "custom" else None
-    
-    # Update project data
-    project_data["mod_name"] = mod_name
-    project_data["author"] = author_name if author_name else "Unknown"
-    
-    print(f"Mod Name: {mod_name}")
-    print(f"Author: {project_data['author']}")
-    print(f"Cars: {len(project_data['cars'])}")
-    total_skins = sum(len(car_info['skins']) for car_info in project_data['cars'].values())
-    print(f"Total Skins: {total_skins}")
-    
-    export_status_label.configure(text="Preparing to export...")
-    export_status_label.pack(padx=20, pady=(10,5))
-    progress_bar.pack(fill="x", padx=20, pady=(0,5))
-    progress_bar.set(0)
-    generate_button.configure(state="disabled")
-
-    def update_status(message):
-        """Update the status label text"""
-        export_status_label.configure(text=message)
-
-    def thread_fn():
-        try:
-            print("\nStarting mod generation thread...")
-            update_status("Processing skins...")
-            
-            # Create custom progress callback
-            def progress_with_status(value):
-                update_progress(value)
-                if value < 0.3:
-                    update_status("Copying template files...")
-                elif value < 0.7:
-                    update_status(f"Processing {total_skins} skins...")
-                else:
-                    update_status("Creating ZIP archive...")
-            
-            # Import and call the multi-skin generator
-            from file_ops import generate_multi_skin_mod as gen_multi
-            gen_multi(
-                project_data,
-                output_path=output_path,
-                progress_callback=progress_with_status
-            )
-            
-            update_status("Export completed successfully!")
-            print("Mod generation completed successfully!")
-            print("="*50 + "\n")
-            show_notification(f"✓ Mod '{mod_name}' created with {total_skins} skins!", "success", 5000)
-            
-            # Ask if user wants to clear project
-            app.after(2000, lambda: show_notification("Project kept. Click 'Clear Project' to start new one.", "info", 4000))
-            
-        except FileExistsError as e:
-            update_status("Error: File already exists")
-            print(f"ERROR: File already exists - {e}")
-            show_notification(f"File already exists: {str(e)}", "error", 5000)
-        except Exception as e:
-            update_status("Error: Export failed")
-            print(f"ERROR: {e}")
-            import traceback
-            traceback.print_exc()
-            show_notification(f"Error: {str(e)}", "error", 5000)
-        finally:
-            progress_bar.set(0)
-            generate_button.configure(state="normal")
-            # Hide progress bar and status after a short delay
-            app.after(2000, lambda: progress_bar.pack_forget())
-            app.after(2000, lambda: export_status_label.pack_forget())
-
-    threading.Thread(target=thread_fn, daemon=True).start()
 
 # Build the Generator Tab UI - wrapped in scrollable frame
 generator_scroll = ctk.CTkScrollableFrame(generator_tab, fg_color="transparent")
 generator_scroll.pack(fill="both", expand=True, padx=0, pady=0)
 
-ctk.CTkLabel(generator_scroll, text="Project Settings", font=ctk.CTkFont(size=14, weight="bold"), text_color=colors["text"]).pack(anchor="w", padx=10, pady=(10,0))
+# Modern section header
+section_header = ctk.CTkFrame(generator_scroll, fg_color="transparent", height=60)
+section_header.pack(fill="x", padx=20, pady=(15, 10))
+section_header.pack_propagate(False)
 
-# Mod name and author in a frame
-settings_frame = ctk.CTkFrame(generator_scroll, corner_radius=12, fg_color=colors["frame_bg"])
-settings_frame.pack(fill="x", padx=10, pady=(5,10))
+ctk.CTkLabel(
+    section_header,
+    text="Project Settings",
+    font=ctk.CTkFont(size=18, weight="bold"),
+    text_color=colors["text"]
+).pack(side="left", anchor="w")
 
-ctk.CTkLabel(settings_frame, text="ZIP Name:", text_color=colors["text"]).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-ctk.CTkEntry(settings_frame, textvariable=mod_name_var, fg_color=colors["card_bg"], text_color=colors["text"]).grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+# Project controls with modern styling
+project_controls = ctk.CTkFrame(section_header, fg_color="transparent")
+project_controls.pack(side="right")
 
-ctk.CTkLabel(settings_frame, text="Author:", text_color=colors["text"]).grid(row=1, column=0, padx=10, pady=5, sticky="w")
-ctk.CTkEntry(settings_frame, textvariable=author_var, fg_color=colors["card_bg"], text_color=colors["text"]).grid(row=1, column=1, padx=10, pady=5, sticky="ew")
-
-settings_frame.columnconfigure(1, weight=1)
-
-# Vehicle selection and add to project
-ctk.CTkLabel(generator_scroll, text="Add Vehicles to Project", font=ctk.CTkFont(size=14, weight="bold"), text_color=colors["text"]).pack(anchor="w", padx=10, pady=(10,0))
-
-ctk.CTkLabel(generator_scroll, text="Selected Vehicle:", text_color=colors["text"], font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=(10,0))
-vehicle_display_entry = ctk.CTkEntry(generator_scroll, textvariable=vehicle_display_var, state="readonly", fg_color=colors["card_bg"], text_color=colors["text"])
-vehicle_display_entry.pack(fill="x", padx=10, pady=(0,5))
-
-vehicle_buttons_frame = ctk.CTkFrame(generator_scroll, fg_color="transparent")
-vehicle_buttons_frame.pack(fill="x", padx=10, pady=(0,10))
-
-select_vehicle_button = ctk.CTkButton(vehicle_buttons_frame, text="Select Vehicle", command=toggle_vehicle_panel, fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"])
-select_vehicle_button.pack(side="left", fill="x", expand=True, padx=(0,5))
-
-add_car_button = ctk.CTkButton(vehicle_buttons_frame, text="Add Car to Project", command=add_car_to_project, fg_color=colors["accent"], hover_color=colors["accent_hover"], text_color=colors["accent_text"])
-add_car_button.pack(side="right", fill="x", expand=True, padx=(5,0))
-
-vehicle_panel = ctk.CTkFrame(generator_scroll, corner_radius=12, fg_color=colors["frame_bg"])
-vehicle_panel.pack_forget()
-vehicle_search_var = ctk.StringVar()
-vehicle_search_var.trace_add("write", update_vehicle_list)
-vehicle_search_entry = ctk.CTkEntry(vehicle_panel, textvariable=vehicle_search_var, placeholder_text="Search for your vehicle here", placeholder_text_color=colors["text_secondary"], fg_color=colors["card_bg"], text_color=colors["text"])
-vehicle_search_entry.pack(fill="x", padx=5, pady=5)
-
-vehicle_scroll_frame = ctk.CTkScrollableFrame(vehicle_panel, height=150, corner_radius=12, fg_color=colors["frame_bg"])
-vehicle_scroll_frame.pack(fill="x", padx=5, pady=5)
-vehicle_scroll_frame.bind("<Enter>", lambda e: bind_tree(vehicle_scroll_frame, "<MouseWheel>", _on_vehicle_mousewheel))
-vehicle_scroll_frame.bind("<Leave>", lambda e: vehicle_scroll_frame.unbind_all("<MouseWheel>"))
-
-# Vehicle buttons in card style
-sorted_vehicles = sorted(VEHICLE_IDS.keys(), key=lambda carid: VEHICLE_IDS[carid].lower())
-for carid in sorted_vehicles:
-    row_frame = ctk.CTkFrame(vehicle_scroll_frame, corner_radius=12, fg_color=colors["frame_bg"])
-    row_frame.pack(fill="x", pady=3, padx=5)
-
-    display_name = VEHICLE_IDS[carid]
-    
-    btn = ctk.CTkButton(
-        row_frame,
-        text=display_name,
-        command=lambda c=carid: select_vehicle(c),
-        fg_color=colors["card_bg"],
-        hover_color=colors["card_hover"],
-        height=35,
-        corner_radius=12,
-        text_color=colors["text"]
-    )
-    btn.pack(fill="x", padx=8, pady=6)
-    
-    btn.bind("<Enter>", lambda e, c=carid, w=btn: schedule_hover_preview(c, w))
-    btn.bind("<Leave>", lambda e: hide_hover_preview())
-    
-    vehicle_buttons.append((btn, carid, display_name))
-
-# Set initial button colors
-for btn, carid, display_name in vehicle_buttons:
-    btn.configure(fg_color=colors["card_bg"] if carid != selected_carid else "blue")
+create_modern_button(project_controls, "💾 Save Project", save_project, style="primary", width=130, height=32).pack(side="left", padx=3)
+create_modern_button(project_controls, "📁 Load Project", load_project, style="primary", width=130, height=32).pack(side="left", padx=3)
+create_modern_button(project_controls, "Clear", clear_project, style="danger", width=100, height=32).pack(side="left", padx=3)
 
 # Project Overview
 ctk.CTkLabel(generator_scroll, text="Project Overview", font=ctk.CTkFont(size=14, weight="bold"), text_color=colors["text"]).pack(anchor="w", padx=10, pady=(10,5))
 
-project_controls_frame = ctk.CTkFrame(generator_scroll, fg_color="transparent")
-project_controls_frame.pack(fill="x", padx=10, pady=(0,5))
+# Search bar for project overview
+project_search_frame = ctk.CTkFrame(generator_scroll, fg_color="transparent")
+project_search_frame.pack(fill="x", padx=10, pady=(0, 5))
 
-save_project_btn = ctk.CTkButton(
-    project_controls_frame,
-    text="💾 Save Project",
-    command=save_project,
-    fg_color=colors["accent"],
-    hover_color=colors["accent_hover"],
-    text_color=colors["accent_text"],
-    width=120
+project_search_var = ctk.StringVar()
+
+project_search_entry = ctk.CTkEntry(
+    project_search_frame,
+    textvariable=project_search_var,
+    height=32,
+    corner_radius=8,
+    fg_color=colors["card_bg"],
+    border_color=colors["border"],
+    text_color="#888888"
 )
-save_project_btn.pack(side="left", padx=(0,5))
+project_search_entry.pack(fill="x")
 
-load_project_btn = ctk.CTkButton(
-    project_controls_frame,
-    text="📁 Load Project",
-    command=load_project,
-    fg_color=colors["accent"],
-    hover_color=colors["accent_hover"],
-    text_color=colors["accent_text"],
-    width=120
-)
-load_project_btn.pack(side="left", padx=5)
+# Setup custom placeholder
+placeholder_project_search = "🔍 Search cars..."
+project_search_entry.insert(0, placeholder_project_search)
+project_search_entry.bind("<FocusIn>", lambda e: on_entry_click(e, project_search_entry, placeholder_project_search))
+project_search_entry.bind("<FocusOut>", lambda e: on_focusout(e, project_search_entry, placeholder_project_search))
 
-clear_project_btn = ctk.CTkButton(
-    project_controls_frame,
-    text="Clear Project",
-    command=clear_project,
-    fg_color=colors["error"],
-    hover_color=colors["error_hover"],
-    text_color=colors["accent_text"],
-    width=120
-)
-clear_project_btn.pack(side="right")
+# Container for 2-column grid
+project_overview_container = ctk.CTkScrollableFrame(generator_scroll, height=150, corner_radius=12, fg_color=colors["frame_bg"])
+project_overview_container.pack(fill="x", padx=10, pady=(0,10))
 
-project_overview_frame = ctk.CTkScrollableFrame(generator_scroll, height=150, corner_radius=12, fg_color=colors["frame_bg"])
-project_overview_frame.pack(fill="x", padx=10, pady=(0,10))
+# Grid frame inside container
+project_overview_frame = ctk.CTkFrame(project_overview_container, fg_color="transparent")
+project_overview_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+# Now attach the search functionality after the frame is created
+project_search_entry.bind("<KeyRelease>", lambda e: refresh_project_display())
 
 # Add Skin Section
 current_car_label = ctk.CTkLabel(generator_scroll, text="", font=ctk.CTkFont(size=14, weight="bold"), text_color=colors["accent"])
@@ -1678,64 +2839,99 @@ def update_current_car_label():
     else:
         current_car_label.pack_forget()
 
-ctk.CTkLabel(generator_scroll, text="Add Skins to Selected Car", font=ctk.CTkFont(size=14, weight="bold"), text_color=colors["text"]).pack(anchor="w", padx=10, pady=(10,5))
+# Modern section header
+ctk.CTkLabel(
+    generator_scroll,
+    text="Add Skins to Selected Car",
+    font=ctk.CTkFont(size=18, weight="bold"),
+    text_color=colors["text"]
+).pack(anchor="w", padx=20, pady=(20, 10))
 
-skin_input_frame = ctk.CTkFrame(generator_scroll, corner_radius=12, fg_color=colors["frame_bg"])
-skin_input_frame.pack(fill="x", padx=10, pady=(0,10))
+# Modern skin input card
+skin_card = create_modern_card(generator_scroll)
+skin_card.pack(fill="x", padx=20, pady=(0, 15))
 
-ctk.CTkLabel(skin_input_frame, text="Skin Name:", text_color=colors["text"], font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=(10,0))
-ctk.CTkEntry(skin_input_frame, textvariable=skin_name_var, fg_color=colors["card_bg"], text_color=colors["text"]).pack(fill="x", padx=10, pady=(0,10))
+skin_card_content = ctk.CTkFrame(skin_card, fg_color="transparent")
+skin_card_content.pack(fill="x", padx=20, pady=20)
 
-ctk.CTkLabel(skin_input_frame, text="DDS Texture:", text_color=colors["text"], font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=(10,0))
-dds_frame = ctk.CTkFrame(skin_input_frame, fg_color="transparent")
-dds_frame.pack(fill="x", padx=10, pady=(0,10))
-dds_entry = ctk.CTkEntry(dds_frame, textvariable=dds_path_var, state="readonly", fg_color=colors["card_bg"], text_color=colors["text"])
-dds_entry.pack(side="left", fill="x", expand=True, padx=(0,5))
-dds_button = ctk.CTkButton(dds_frame, text="Browse", width=80, command=select_dds, fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"])
+# Skin name input
+skin_name_input = create_modern_input(skin_card_content, "Skin Name", skin_name_var)
+skin_name_input.pack(fill="x", pady=(0, 15))
+
+# DDS texture input with preview
+dds_section = ctk.CTkFrame(skin_card_content, fg_color="transparent")
+dds_section.pack(fill="x", pady=(0, 15))
+
+ctk.CTkLabel(
+    dds_section,
+    text="DDS Texture File",
+    font=ctk.CTkFont(size=12, weight="bold"),
+    text_color=colors["text"],
+    anchor="w"
+).pack(fill="x", pady=(0, 8))
+
+dds_input_frame = ctk.CTkFrame(dds_section, fg_color="transparent")
+dds_input_frame.pack(fill="x", pady=(0, 12))
+
+dds_entry = ctk.CTkEntry(
+    dds_input_frame,
+    textvariable=dds_path_var,
+    state="readonly",
+    fg_color=colors["frame_bg"],
+    text_color=colors["text"],
+    border_width=1,
+    border_color=colors["border"],
+    corner_radius=10,
+    height=40,
+    font=ctk.CTkFont(size=12)
+)
+dds_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+dds_button = ctk.CTkButton(
+    dds_input_frame,
+    text="📁 Browse",
+    width=100,
+    height=40,
+    command=select_dds,
+    fg_color=colors["frame_bg"],
+    hover_color=colors["card_hover"],
+    text_color=colors["text"],
+    border_width=1,
+    border_color=colors["border"],
+    corner_radius=10,
+    font=ctk.CTkFont(size=12, weight="bold")
+)
 dds_button.pack(side="right")
 
-dds_preview_label = ctk.CTkLabel(skin_input_frame, text="Preview", fg_color=colors["frame_bg"], corner_radius=12, width=150, height=150, text_color=colors["text"])
-dds_preview_label.pack(padx=10, pady=(0,5))
+# Modern preview with border
+preview_container = ctk.CTkFrame(dds_section, fg_color=colors["frame_bg"], corner_radius=14, border_width=2, border_color=colors["border"])
+preview_container.pack()
 
-add_skin_button = ctk.CTkButton(skin_input_frame, text="Add Skin to Selected Car", command=add_skin_to_car, 
-                                fg_color=colors["accent"], hover_color=colors["accent_hover"], text_color=colors["accent_text"],
-                                height=35, font=ctk.CTkFont(size=13, weight="bold"))
-add_skin_button.pack(fill="x", padx=10, pady=(0,5))
-
-# Output
-ctk.CTkLabel(generator_scroll, text="Output Location", font=ctk.CTkFont(size=12, weight="bold"), text_color=colors["text"]).pack(anchor="w", padx=10, pady=(10,5))
-output_frame = ctk.CTkFrame(generator_scroll, fg_color="transparent")
-output_frame.pack(fill="x", padx=10, pady=(0,10))
-
-steam_radio = ctk.CTkRadioButton(
-    output_frame,
-    text="Steam (Default Mod folder location)",
-    variable=output_mode_var,
-    value="steam",
-    text_color=colors["text"]
+dds_preview_label = ctk.CTkLabel(
+    preview_container,
+    text="🖼️\n\nPreview\n\nSelect a DDS file",
+    fg_color="transparent",
+    corner_radius=12,
+    width=180,
+    height=180,
+    text_color=colors["text_secondary"],
+    font=ctk.CTkFont(size=12)
 )
-steam_radio.pack(anchor="w", pady=2)
+dds_preview_label.pack(padx=10, pady=10)
 
-custom_radio = ctk.CTkRadioButton(
-    output_frame,
-    text="Custom Location",
-    variable=output_mode_var,
-    value="custom",
-    text_color=colors["text"]
+# Modern add button
+add_skin_button = ctk.CTkButton(
+    skin_card_content,
+    text="➕ Add Skin to Selected Car",
+    command=add_skin_to_car,
+    fg_color=colors["accent"],
+    hover_color=colors["accent_hover"],
+    text_color=colors["accent_text"],
+    height=45,
+    corner_radius=12,
+    font=ctk.CTkFont(size=14, weight="bold")
 )
-custom_radio.pack(anchor="w", pady=2)
-
-custom_output_frame = ctk.CTkFrame(output_frame, corner_radius=12, fg_color=colors["frame_bg"])
-custom_output_frame.pack_forget()
-
-custom_output_entry = ctk.CTkEntry(custom_output_frame, textvariable=custom_output_var, state="readonly", fg_color=colors["card_bg"], text_color=colors["text"])
-custom_output_entry.pack(side="left", fill="x", expand=True, padx=5, pady=5)
-
-custom_browse_button = ctk.CTkButton(custom_output_frame, text="Browse", width=80, command=select_custom_output, fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"])
-custom_browse_button.pack(side="right", padx=5, pady=5)
-
-steam_radio.configure(command=update_output_mode)
-custom_radio.configure(command=update_output_mode)
+add_skin_button.pack(fill="x", pady=(5, 0))
 
 # Export status and progress
 export_status_label = ctk.CTkLabel(generator_scroll, text="", text_color=colors["text"], font=ctk.CTkFont(size=12))
@@ -1745,9 +2941,6 @@ export_status_label.pack_forget()
 progress_bar = ctk.CTkProgressBar(generator_scroll)
 progress_bar.pack_forget()
 
-generate_button = ctk.CTkButton(generator_scroll, text="Generate Mod", height=40, command=generate_multi_skin_mod,
-                                font=ctk.CTkFont(size=14, weight="bold"), fg_color=colors["accent"], hover_color=colors["accent_hover"], text_color=colors["accent_text"])
-generate_button.pack(padx=20, pady=10, fill="x")
 
 # Initialize display
 refresh_project_display()
@@ -1802,7 +2995,7 @@ carid_skin_Skinname.dds
 
 Naming Breakdown
 - carid – Vehicle identifier (single word).
-  - You can find the correct carid in the "Car ID List" tab.
+  - You can find the correct carid in the "Car List" tab.
 - skin – Must stay exactly as written
 - Skinname – One word, no spaces
 
@@ -1884,14 +3077,15 @@ Choose your own folder for exporting.
 Useful if you have a custom mod directory or want to 
 organize your mods differently.
 """),
-    "Chapter 4": ("Car ID List", """
+    "Chapter 4": ("Car List", """
 ────────────────────────────
-Chapter 4: Car ID List
+Chapter 4: Car List
 ────────────────────────────
 
-The Car ID List tab shows all available vehicles.
+The Car List tab shows all available vehicles.
 - Search by car name or car ID
 - Click "Copy ID" to copy the car ID to clipboard
+- Click "Get UV Map" to extract the vehicle's UV template
 - Hover over any vehicle to see a preview image
 - Use this when naming your DDS files
 """),
@@ -2250,7 +3444,7 @@ carlist_search_entry = ctk.CTkEntry(
     carlist_tab,
     textvariable=carlist_search_var,
     placeholder_text="Search Car ID...",
-    placeholder_text_color=colors["text_secondary"],
+    placeholder_text_color="#888888",
     fg_color=colors["card_bg"],
     text_color=colors["text"]
 )
@@ -2259,13 +3453,7 @@ carlist_search_entry.pack(fill="x", padx=10, pady=(10,5))
 carlist_scroll = ctk.CTkScrollableFrame(carlist_tab, fg_color=colors["frame_bg"])
 carlist_scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-def _on_carlist_mousewheel(event):
-    scroll_amount = int(-1 * (event.delta / 120) * 15)
-    carlist_scroll._parent_canvas.yview_scroll(scroll_amount, "units")
-    return "break"
-
-carlist_scroll.bind("<Enter>", lambda e: bind_tree(carlist_scroll, "<MouseWheel>", _on_carlist_mousewheel))
-carlist_scroll.bind("<Leave>", lambda e: carlist_scroll.unbind_all("<MouseWheel>"))
+# No manual scroll bindings - universal scroll handler will manage this
 
 carlist_font = ctk.CTkFont(size=14, weight="bold")
 carlist_items = []
@@ -2292,6 +3480,310 @@ def copy_carid(carid):
     app.clipboard_append(carid)
     show_notification(f"✓ Car ID '{carid}' copied to clipboard!", "success", 2000)
 
+def get_uv_map(carid):
+    """Search for UV map in BeamNG installation and prompt user to copy it"""
+    import zipfile
+    import tempfile
+    import re
+    from tkinter import simpledialog
+    
+    # BeamNG default installation path
+    beamng_path = r"C:\Program Files (x86)\Steam\steamapps\common\BeamNG.drive\content\vehicles"
+    zip_file_path = os.path.join(beamng_path, f"{carid}.zip")
+    
+    # Check if the ZIP file exists
+    if not os.path.exists(zip_file_path):
+        show_notification(f"❌ Vehicle ZIP not found: {carid}.zip", "error", 4000)
+        print(f"UV Map search failed: ZIP file does not exist - {zip_file_path}")
+        return
+    
+    try:
+        # First, check if we need to also search in common.zip
+        # This applies to vehicles that reference common parts (like ambulance variants)
+        search_common = False
+        common_search_dirs = []
+        
+        # Check if any files in the vehicle zip reference common parts
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            all_files = zip_ref.namelist()
+            for file_path in all_files:
+                filename_lower = os.path.basename(file_path).lower()
+                # If we find ambulance-related files, also search in common/pickup
+                if "ambulance" in filename_lower:
+                    search_common = True
+                    common_search_dirs.append("vehicles/common/pickup/")
+                    break
+        
+        # Now search for UV maps
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            all_files = zip_ref.namelist()
+            
+            # Look for UV map files in vehicles/<carid>/ directory
+            target_dir = f"vehicles/{carid}/"
+            found_files = []
+            
+            # Search for files containing "skin" and "uv" OR just "uvmap" OR "uv1_layout" (case-insensitive)
+            # Exclude files with "color" as they are textures, not UV maps
+            for file_path in all_files:
+                if file_path.startswith(target_dir):
+                    filename_lower = os.path.basename(file_path).lower()
+                    
+                    # Skip files with "color" in the name (these are texture files)
+                    if "color" in filename_lower:
+                        continue
+                    
+                    # Skip files that start with "skin_" (these are skin texture files like skin_camo.dds, skin_zebra.png, etc.)
+                    if filename_lower.startswith("skin_"):
+                        continue
+                    
+                    # Skip files that match pattern: <word>_skin_<skinname>_uv (like autobello_skin_doublestripe_uv1.dds)
+                    # These are skin textures, not UV layout maps
+                    # We detect this by checking if there's text between "_skin_" and "_uv"
+                    if re.search(r'_skin_\w+_uv\d*\.', filename_lower):
+                        continue
+                    
+                    # Check if filename contains both "skin" and "uv", OR contains "uvmap", OR contains "uv1_layout"
+                    has_skin_and_uv = "skin" in filename_lower and "uv" in filename_lower
+                    has_uvmap = "uvmap" in filename_lower
+                    has_uv_layout = "uv1_layout" in filename_lower or "uv_layout" in filename_lower
+                    
+                    if has_skin_and_uv or has_uvmap or has_uv_layout:
+                        # Prioritize certain extensions
+                        if filename_lower.endswith(('.dds', '.png', '.jpg', '.jpeg')):
+                            found_files.append((file_path, zip_file_path))
+            
+            # If we need to search common.zip, do it now
+            if search_common and common_search_dirs:
+                common_zip_path = os.path.join(beamng_path, "common.zip")
+                if os.path.exists(common_zip_path):
+                    print(f"Also searching in common.zip for ambulance UV maps...")
+                    with zipfile.ZipFile(common_zip_path, 'r') as common_zip:
+                        common_files = common_zip.namelist()
+                        
+                        for search_dir in common_search_dirs:
+                            for file_path in common_files:
+                                if file_path.startswith(search_dir):
+                                    filename_lower = os.path.basename(file_path).lower()
+                                    
+                                    # Apply same filters
+                                    if "color" in filename_lower:
+                                        continue
+                                    if filename_lower.startswith("skin_"):
+                                        continue
+                                    if re.search(r'_skin_\w+_uv\d*\.', filename_lower):
+                                        continue
+                                    
+                                    has_skin_and_uv = "skin" in filename_lower and "uv" in filename_lower
+                                    has_uvmap = "uvmap" in filename_lower
+                                    has_uv_layout = "uv1_layout" in filename_lower or "uv_layout" in filename_lower
+                                    
+                                    if has_skin_and_uv or has_uvmap or has_uv_layout:
+                                        if filename_lower.endswith(('.dds', '.png', '.jpg', '.jpeg')):
+                                            found_files.append((file_path, common_zip_path))
+            
+            if not found_files:
+                show_notification(f"❌ No UV map files found for '{carid}'", "error", 4000)
+                print(f"UV Map search failed: No UV files found in {zip_file_path}")
+                # Show files that contain "skin" or "uvmap" for debugging
+                skin_files = [f for f in all_files if f.startswith(target_dir) and "skin" in os.path.basename(f).lower()]
+                uvmap_files = [f for f in all_files if f.startswith(target_dir) and "uvmap" in os.path.basename(f).lower()]
+                uv_files = [f for f in all_files if f.startswith(target_dir) and "uv" in os.path.basename(f).lower()]
+                print(f"Files with 'skin' in name: {skin_files[:10]}")  # Show first 10
+                print(f"Files with 'uvmap' in name: {uvmap_files}")
+                print(f"Files with 'uv' in name: {uv_files[:10]}")
+                return
+            
+            # If multiple files found, let user choose
+            selected_files = []
+            if len(found_files) == 1:
+                selected_files = [found_files[0]]
+                file_path, source_zip = found_files[0]
+                print(f"UV Map found in ZIP: {file_path} (from {os.path.basename(source_zip)})")
+            else:
+                # Create selection dialog
+                print(f"Multiple UV maps found ({len(found_files)}): {[(os.path.basename(f), os.path.basename(z)) for f, z in found_files]}")
+                
+                # Create a custom dialog window
+                dialog = ctk.CTkToplevel(app)
+                dialog.title("Select UV Map(s)")
+                dialog.geometry("600x400")
+                dialog.transient(app)
+                dialog.grab_set()
+                
+                # Center the dialog
+                dialog.update_idletasks()
+                x = (dialog.winfo_screenwidth() // 2) - (600 // 2)
+                y = (dialog.winfo_screenheight() // 2) - (400 // 2)
+                dialog.geometry(f"600x400+{x}+{y}")
+                
+                ctk.CTkLabel(
+                    dialog,
+                    text=f"Multiple UV maps found for {carid}\nSelect one or more files:",
+                    font=ctk.CTkFont(size=14, weight="bold"),
+                    text_color=colors["text"]
+                ).pack(pady=20)
+                
+                # Scrollable frame for options
+                scroll_frame = ctk.CTkScrollableFrame(dialog, fg_color=colors["frame_bg"])
+                scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0,20))
+                
+                # Dictionary to store checkbox variables
+                checkbox_vars = {}
+                
+                # Add checkboxes for each file
+                for file_info in found_files:
+                    file_path, source_zip = file_info
+                    filename = os.path.basename(file_path)
+                    source_name = os.path.basename(source_zip)
+                    display_text = f"{filename} (from {source_name})" if source_zip != zip_file_path else filename
+                    
+                    var = ctk.BooleanVar(value=False)
+                    checkbox_vars[file_info] = var
+                    
+                    checkbox = ctk.CTkCheckBox(
+                        scroll_frame,
+                        text=display_text,
+                        variable=var,
+                        font=ctk.CTkFont(size=12),
+                        text_color=colors["text"]
+                    )
+                    checkbox.pack(anchor="w", pady=5, padx=10)
+                
+                # Buttons frame
+                btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+                btn_frame.pack(fill="x", padx=20, pady=(0,20))
+                
+                def select_all():
+                    for var in checkbox_vars.values():
+                        var.set(True)
+                
+                def deselect_all():
+                    for var in checkbox_vars.values():
+                        var.set(False)
+                
+                def on_select():
+                    nonlocal selected_files
+                    selected_files = [path for path, var in checkbox_vars.items() if var.get()]
+                    if selected_files:
+                        dialog.destroy()
+                    else:
+                        show_notification("Please select at least one UV map file", "error", 2000)
+                
+                def on_cancel():
+                    nonlocal selected_files
+                    selected_files = []
+                    dialog.destroy()
+                
+                ctk.CTkButton(
+                    btn_frame,
+                    text="Select All",
+                    command=select_all,
+                    fg_color=colors["card_bg"],
+                    hover_color=colors["card_hover"],
+                    text_color=colors["text"],
+                    width=100
+                ).pack(side="left", padx=5)
+                
+                ctk.CTkButton(
+                    btn_frame,
+                    text="Deselect All",
+                    command=deselect_all,
+                    fg_color=colors["card_bg"],
+                    hover_color=colors["card_hover"],
+                    text_color=colors["text"],
+                    width=100
+                ).pack(side="left", padx=5)
+                
+                ctk.CTkButton(
+                    btn_frame,
+                    text="OK",
+                    command=on_select,
+                    fg_color=colors["accent"],
+                    hover_color=colors["accent_hover"],
+                    text_color=colors["accent_text"],
+                    width=100
+                ).pack(side="right", padx=5)
+                
+                ctk.CTkButton(
+                    btn_frame,
+                    text="Cancel",
+                    command=on_cancel,
+                    fg_color=colors["error"],
+                    hover_color=colors["error_hover"],
+                    text_color=colors["accent_text"],
+                    width=100
+                ).pack(side="right", padx=5)
+                
+                # Wait for dialog to close
+                app.wait_window(dialog)
+                
+                if not selected_files:
+                    print("User cancelled UV map selection")
+                    return
+            
+            print(f"Selected UV Map(s): {[(os.path.basename(f), os.path.basename(z)) for f, z in selected_files]}")
+            
+            # Ask user where to save the file(s)
+            if len(selected_files) == 1:
+                # Single file - use save file dialog
+                file_path, source_zip = selected_files[0]
+                file_ext = os.path.splitext(file_path)[1]
+                destination = filedialog.asksaveasfilename(
+                    title="Save UV Map As",
+                    defaultextension=file_ext,
+                    initialfile=os.path.basename(file_path),
+                    filetypes=[
+                        ("All Files", "*.*"),
+                        ("DDS Files", "*.dds"),
+                        ("PNG Files", "*.png"),
+                        ("JPG Files", "*.jpg")
+                    ]
+                )
+                
+                if destination:
+                    with zipfile.ZipFile(source_zip, 'r') as source_zip_ref:
+                        with source_zip_ref.open(file_path) as source:
+                            with open(destination, 'wb') as target:
+                                target.write(source.read())
+                    
+                    show_notification(f"✓ UV map copied successfully!", "success", 3000)
+                    print(f"UV Map extracted from {source_zip} to {destination}")
+            else:
+                # Multiple files - use directory dialog
+                destination_folder = filedialog.askdirectory(
+                    title="Select Folder to Save UV Maps"
+                )
+                
+                if destination_folder:
+                    success_count = 0
+                    for file_info in selected_files:
+                        file_path, source_zip = file_info
+                        filename = os.path.basename(file_path)
+                        destination = os.path.join(destination_folder, filename)
+                        
+                        try:
+                            with zipfile.ZipFile(source_zip, 'r') as source_zip_ref:
+                                with source_zip_ref.open(file_path) as source:
+                                    with open(destination, 'wb') as target:
+                                        target.write(source.read())
+                            success_count += 1
+                            print(f"UV Map extracted: {filename} from {os.path.basename(source_zip)} to {destination}")
+                        except Exception as e:
+                            print(f"Failed to extract {filename}: {e}")
+                    
+                    show_notification(f"✓ {success_count} UV map(s) copied successfully!", "success", 3000)
+                    print(f"{success_count}/{len(selected_files)} UV maps extracted to {destination_folder}")
+                
+    except zipfile.BadZipFile:
+        show_notification(f"❌ Invalid ZIP file: {carid}.zip", "error", 4000)
+        print(f"Error: {zip_file_path} is not a valid ZIP file")
+    except Exception as e:
+        show_notification(f"❌ Failed to extract UV map: {str(e)}", "error", 4000)
+        print(f"Error extracting UV map: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def bind_hover(frame, widgets, normal_color=None, hover_color=None):
     if normal_color is None:
         normal_color = colors["card_bg"]
@@ -2310,55 +3802,92 @@ def bind_hover(frame, widgets, normal_color=None, hover_color=None):
         w.bind("<Leave>", on_leave)
 
 for carid, name in car_id_list:
+    # Modern card design
     card_frame = ctk.CTkFrame(
         carlist_scroll,
-        corner_radius=12,
+        corner_radius=14,
         fg_color=colors["card_bg"],
         border_width=1,
         border_color=colors["border"]
     )
-    card_frame.pack(fill="x", pady=8, padx=8)
+    card_frame.pack(fill="x", pady=6, padx=10)
 
     inner_frame = ctk.CTkFrame(
         card_frame,
-        corner_radius=12,
-        fg_color=colors["card_bg"],
-        border_width=0
+        corner_radius=14,
+        fg_color="transparent"
     )
-    inner_frame.pack(fill="x", padx=5, pady=5)
+    inner_frame.pack(fill="x", padx=4, pady=4)
 
-    lbl = ctk.CTkLabel(
-        inner_frame,
-        text=f"{carid}  —  {name}",
+    # Icon + Text container
+    text_container = ctk.CTkFrame(inner_frame, fg_color="transparent")
+    text_container.pack(side="left", fill="x", expand=True, padx=12, pady=10)
+    
+    # Car emoji/icon
+    ctk.CTkLabel(
+        text_container,
+        text="🚗",
+        font=ctk.CTkFont(size=20),
+        anchor="w"
+    ).pack(side="left", padx=(0, 10))
+    
+    # Text stack
+    text_stack = ctk.CTkFrame(text_container, fg_color="transparent")
+    text_stack.pack(side="left", fill="x", expand=True)
+    
+    ctk.CTkLabel(
+        text_stack,
+        text=name,
         anchor="w",
-        justify="left",
-        font=carlist_font,
+        font=ctk.CTkFont(size=14, weight="bold"),
         text_color=colors["text"]
-    )
-    lbl.pack(side="left", fill="x", expand=True, padx=(10,5), pady=8)
+    ).pack(anchor="w")
+    
+    ctk.CTkLabel(
+        text_stack,
+        text=carid,
+        anchor="w",
+        font=ctk.CTkFont(size=11),
+        text_color=colors["text_secondary"]
+    ).pack(anchor="w")
 
-    btn = ctk.CTkButton(
-        inner_frame,
-        text="Copy ID",
-        width=90,
-        height=28,
-        fg_color=colors["accent"],
+    # Buttons container
+    btn_container = ctk.CTkFrame(inner_frame, fg_color="transparent")
+    btn_container.pack(side="right", padx=8, pady=8)
+
+    # Modern styled buttons
+    uv_btn = ctk.CTkButton(
+        btn_container,
+        text="📐 UV Map",
+        width=110,
+        height=36,
+        fg_color=colors["success"],
         hover_color=colors["accent_hover"],
         text_color=colors["accent_text"],
-        corner_radius=12,
+        corner_radius=10,
+        font=ctk.CTkFont(size=12, weight="bold"),
+        command=lambda c=carid: get_uv_map(c)
+    )
+    uv_btn.pack(side="left", padx=4)
+
+    copy_btn = ctk.CTkButton(
+        btn_container,
+        text="📋 Copy ID",
+        width=100,
+        height=36,
+        fg_color=colors["frame_bg"],
+        hover_color=colors["card_hover"],
+        text_color=colors["text"],
+        corner_radius=10,
+        font=ctk.CTkFont(size=12),
+        border_width=1,
+        border_color=colors["border"],
         command=lambda c=carid: copy_carid(c)
     )
-    btn.pack(side="right", padx=10, pady=8)
+    copy_btn.pack(side="left", padx=4)
 
-    # Add hover preview bindings to card
-    card_frame.bind("<Enter>", lambda e, c=carid, w=card_frame: schedule_hover_preview(c, w))
-    card_frame.bind("<Leave>", lambda e: hide_hover_preview())
-    lbl.bind("<Enter>", lambda e, c=carid, w=lbl: schedule_hover_preview(c, w))
-    lbl.bind("<Leave>", lambda e: hide_hover_preview())
-    inner_frame.bind("<Enter>", lambda e, c=carid, w=inner_frame: schedule_hover_preview(c, w))
-    inner_frame.bind("<Leave>", lambda e: hide_hover_preview())
-
-    bind_hover(card_frame, [inner_frame, lbl, btn])
+    # Use robust hover system
+    setup_robust_hover(card_frame, carid)
 
     carlist_items.append((card_frame, carid, name))
 
@@ -2382,16 +3911,38 @@ debug_mode_var = ctk.BooleanVar(value=False)
 debug_mode_frame = ctk.CTkFrame(settings_tab, fg_color="transparent")
 
 def toggle_developer_mode():
+    global developer_tab
     if developer_mode_var.get():
         print("Developer mode enabled")
-        if "    Developer    " not in tabview._tab_dict:
-            tabview.add("    Developer    ")
+        # Create developer tab if it doesn't exist
+        if developer_tab is None:
+            developer_tab = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
             setup_developer_tab()
+            # Add developer button to menu
+            developer_btn = ctk.CTkButton(
+                menu_frame,
+                text="   Developer   ",
+                width=110,
+                height=36,
+                fg_color="transparent",
+                hover_color=colors["card_hover"],
+                text_color=colors["text_secondary"],
+                corner_radius=8,
+                font=ctk.CTkFont(size=12),
+                command=lambda: switch_view("developer")
+            )
+            developer_btn.pack(side="left", padx=3)
+            menu_buttons["developer"] = developer_btn
         debug_mode_frame.pack(anchor="w", padx=10, pady=(0,10))
     else:
         print("Developer mode disabled")
-        if "    Developer    " in tabview._tab_dict:
-            tabview.delete("    Developer    ")
+        # Remove developer tab
+        if developer_tab is not None:
+            developer_tab.pack_forget()
+            # Remove developer button from menu
+            if "developer" in menu_buttons:
+                menu_buttons["developer"].destroy()
+                del menu_buttons["developer"]
         debug_mode_frame.pack_forget()
         if debug_mode_var.get():
             debug_mode_var.set(False)
@@ -2468,7 +4019,7 @@ ctk.CTkButton(socials_frame, text="Linktree", width=120, font=ctk.CTkFont(size=1
                hover_color=colors["accent_hover"], text_color=colors["accent_text"],
                command=lambda: [webbrowser.open("https://linktr.ee/burzt_yt"), toggle_socials(socials_frame)]).pack(pady=5)
 
-ctk.CTkLabel(about_frame, text="Version: V.0.1.0", font=ctk.CTkFont(size=14), text_color=colors["text"]).pack(side="bottom", pady=(0,10))
+ctk.CTkLabel(about_frame, text=f"Version: {CURRENT_VERSION}", font=ctk.CTkFont(size=14), text_color=colors["text"]).pack(side="bottom", pady=(0,10))
 
 # -----------------------
 # Developer Tab setup
@@ -2484,12 +4035,11 @@ if os.path.exists(ADDED_VEHICLES_FILE):
 
 def setup_developer_tab():
     global developer_tab
-    developer_tab = tabview._tab_dict.get("    Developer    ")
-    if developer_tab is None:
-        developer_tab = tabview.add("    Developer    ")
     
-    for widget in developer_tab.winfo_children():
-        widget.destroy()
+    # Clear existing widgets if any
+    if developer_tab is not None:
+        for widget in developer_tab.winfo_children():
+            widget.destroy()
     
     ctk.CTkLabel(developer_tab, text="Add New Vehicle", font=ctk.CTkFont(size=16, weight="bold"), text_color=colors["text"]).pack(anchor="w", padx=10, pady=(10,5))
     
@@ -2731,7 +4281,7 @@ def setup_developer_tab():
         developer_tab,
         textvariable=dev_search_var,
         placeholder_text="Search added vehicles...",
-        placeholder_text_color=colors["text_secondary"],
+        placeholder_text_color="#888888",
         fg_color=colors["card_bg"],
         text_color=colors["text"]
     )
@@ -2753,24 +4303,28 @@ def setup_developer_tab():
             delete_vehicle_folders(carid)
             print(f"Deleted vehicle folders for {carid}")
 
+            # Remove from car_id_list
             for i, item in enumerate(car_id_list):
                 if item[0] == carid:
                     car_id_list.pop(i)
                     break
 
-            for i, (btn, cid, dname) in enumerate(vehicle_buttons):
-                if cid == carid:
-                    btn.master.destroy()
-                    vehicle_buttons.pop(i)
-                    break
-
+            # Remove from carlist (Car List tab)
             for i, (card, c, n) in enumerate(carlist_items):
                 if c == carid:
                     card.destroy()
                     carlist_items.pop(i)
                     break
+            
+            # Remove from sidebar_vehicle_buttons
+            for i, (container, cid, dname, add_frame) in enumerate(sidebar_vehicle_buttons):
+                if cid == carid:
+                    container.destroy()
+                    sidebar_vehicle_buttons.pop(i)
+                    break
 
             print(f"Vehicle '{carid}' deleted successfully\n")
+            show_notification(f"✓ Vehicle '{carid}' deleted successfully!", "success", 3000)
             refresh_developer_list()
 
     def refresh_developer_list():
@@ -2779,42 +4333,140 @@ def setup_developer_tab():
         
         for widget in dev_list_frame.winfo_children():
             widget.destroy()
+        
+        # Get search term
+        search_term = dev_search_var.get().lower()
+        
+        # Populate list with added vehicles
+        if not added_vehicles:
+            # Show "no vehicles" message
+            no_vehicles_label = ctk.CTkLabel(
+                dev_list_frame,
+                text="No custom vehicles added yet.\nUse the form above to add vehicles.",
+                text_color=colors["text_secondary"],
+                font=ctk.CTkFont(size=12)
+            )
+            no_vehicles_label.pack(pady=50)
+        else:
+            # Sort vehicles alphabetically by name
+            sorted_vehicles = sorted(added_vehicles.items(), key=lambda x: x[1].lower())
             
-        for carid, carname in added_vehicles.items():
-            row = ctk.CTkFrame(dev_list_frame, corner_radius=12, fg_color=colors["card_bg"])
-            row.pack(fill="x", pady=4, padx=4)
-            
-            lbl = ctk.CTkLabel(row, text=f"{carid} — {carname}", anchor="w", text_color=colors["text"])
-            lbl.pack(side="left", fill="x", expand=True, padx=5, pady=5)
-            
-            del_btn = ctk.CTkButton(row, text="Delete", width=80, fg_color=colors["error"],
-                                    hover_color=colors["error_hover"], text_color=colors["accent_text"],
-                                    command=lambda c=carid: delete_vehicle(c))
-            del_btn.pack(side="right", padx=5, pady=5)
-            
-            # Add hover preview bindings
-            row.bind("<Enter>", lambda e, c=carid, w=row: schedule_hover_preview(c, w))
-            row.bind("<Leave>", lambda e: hide_hover_preview())
-            lbl.bind("<Enter>", lambda e, c=carid, w=lbl: schedule_hover_preview(c, w))
-            lbl.bind("<Leave>", lambda e: hide_hover_preview())
-            
-            # Store for search filtering
-            dev_list_items.append((row, carid, carname))
+            for carid, carname in sorted_vehicles:
+                # Filter by search term
+                if search_term and search_term not in carid.lower() and search_term not in carname.lower():
+                    continue
+                
+                # Create item frame
+                item_frame = ctk.CTkFrame(
+                    dev_list_frame,
+                    fg_color=colors["card_bg"],
+                    corner_radius=8,
+                    border_width=1,
+                    border_color=colors["border"]
+                )
+                item_frame.pack(fill="x", padx=5, pady=3)
+                
+                # Vehicle info
+                info_label = ctk.CTkLabel(
+                    item_frame,
+                    text=f"{carname}  —  {carid}",
+                    text_color=colors["text"],
+                    font=ctk.CTkFont(size=12),
+                    anchor="w"
+                )
+                info_label.pack(side="left", fill="x", expand=True, padx=10, pady=8)
+                
+                # Add hover preview bindings to the item frame
+                item_frame.bind("<Enter>", lambda e, c=carid: schedule_hover_preview(c, e.widget))
+                item_frame.bind("<Leave>", lambda e: hide_hover_preview())
+                
+                # Also bind to info label for better coverage
+                info_label.bind("<Enter>", lambda e, c=carid: schedule_hover_preview(c, e.widget))
+                info_label.bind("<Leave>", lambda e: hide_hover_preview())
+                
+                # Delete button
+                delete_btn = ctk.CTkButton(
+                    item_frame,
+                    text="Delete",
+                    width=80,
+                    height=28,
+                    fg_color="#B71C1C",  # Red
+                    hover_color="#D32F2F",
+                    text_color="white",
+                    corner_radius=6,
+                    command=lambda c=carid: delete_vehicle(c)
+                )
+                delete_btn.pack(side="right", padx=10, pady=8)
+                
+                # Force hide preview when hovering over delete button
+                delete_btn.bind("<Enter>", lambda e: hide_hover_preview(force=True), add=True)
+                
+                dev_list_items.append((item_frame, carid, carname))
     
-    def update_dev_list(*args):
-        """Filter the developer list based on search query"""
-        query = dev_search_var.get().lower()
-        for row, carid, carname in dev_list_items:
-            row.pack_forget()
-            if query in carid.lower() or query in carname.lower():
-                row.pack(fill="x", pady=4, padx=4)
-        dev_list_frame._parent_canvas.yview_moveto(0)
+    # Connect search to refresh function
+    dev_search_var.trace_add("write", lambda *args: refresh_developer_list())
     
-    dev_search_var.trace_add("write", update_dev_list)
-
+    # Initial population of the list
     refresh_developer_list()
+            
+        
+# ===========================
+# POPULATE SIDEBAR WITH VEHICLES (Mods Studio 2 Tree)
+# ===========================
+print("Populating sidebar with vehicles...")
+
+# ===========================
+# POPULATE SIDEBAR WITH EXPANDABLE VEHICLE BUTTONS
+# ===========================
+def toggle_vehicle_add_button(carid, add_button_frame):
+    """Toggle the add button for a vehicle"""
+    global expanded_vehicle_carid
+    
+    # If clicking the same vehicle, collapse it
+    if expanded_vehicle_carid == carid:
+        add_button_frame.pack_forget()
+        expanded_vehicle_carid = None
+    else:
+        # Collapse any previously expanded vehicle
+        if expanded_vehicle_carid is not None:
+            for btn_frame, car_id, _, add_btn_frame in sidebar_vehicle_buttons:
+                if car_id == expanded_vehicle_carid:
+                    add_btn_frame.pack_forget()
+                    break
+        
+        # Expand this vehicle
+        add_button_frame.pack(fill="x", padx=5, pady=(0, 5))
+        expanded_vehicle_carid = carid
+
+def add_vehicle_to_project_from_sidebar(carid):
+    """Add a vehicle to the project from sidebar"""
+    global selected_carid, selected_display_name
+    
+    # Find display name
+    display_name = VEHICLE_IDS.get(carid, carid)
+    for _, cid, dname, _ in sidebar_vehicle_buttons:
+        if cid == carid:
+            display_name = dname
+            break
+    
+    selected_carid = carid
+    selected_display_name = display_name
+    
+    # Call the original add car to project function
+    add_car_to_project()
+    
+    # Collapse the add button after adding
+    for btn_frame, car_id, _, add_btn_frame in sidebar_vehicle_buttons:
+        if car_id == carid:
+            add_btn_frame.pack_forget()
+            break
+
+        if car_id == carid:
+            add_btn_frame.pack_forget()
+            break
 
 def add_carlist_card(carid, name, developer_added=False):
+    """Add a vehicle card to the Car List tab"""
     insert_position = 0
     for i, (card, cid, cname) in enumerate(carlist_items):
         if cname.lower() > name.lower():
@@ -2848,6 +4500,27 @@ def add_carlist_card(carid, name, developer_added=False):
     )
     lbl.pack(side="left", fill="x", expand=True, padx=(10,5), pady=8)
 
+    widgets_for_hover = [inner_frame, lbl]
+    
+    # Only add UV Map button for default cars (not user-added)
+    if not developer_added:
+        uv_btn = ctk.CTkButton(
+            inner_frame,
+            text="Get UV Map",
+            width=100,
+            height=28,
+            fg_color="#2E7D32",  # Green color to stand out
+            hover_color="#1B5E20",  # Darker green on hover
+            text_color="white",
+            corner_radius=12,
+            command=lambda c=carid: get_uv_map(c)
+        )
+        uv_btn.pack(side="right", padx=(5,10), pady=8)
+        widgets_for_hover.append(uv_btn)
+        
+        # Add explicit bindings to FORCE hide preview when hovering over UV button
+        uv_btn.bind("<Enter>", lambda e: hide_hover_preview(force=True), add=True)
+
     btn = ctk.CTkButton(
         inner_frame,
         text="Copy ID",
@@ -2859,17 +4532,13 @@ def add_carlist_card(carid, name, developer_added=False):
         corner_radius=12,
         command=lambda c=carid: copy_carid(c)
     )
-    btn.pack(side="right", padx=10, pady=8)
+    btn.pack(side="right", padx=10 if developer_added else 5, pady=8)
+    
+    # Add explicit bindings to FORCE hide preview when hovering over Copy ID button
+    btn.bind("<Enter>", lambda e: hide_hover_preview(force=True), add=True)
 
-    # Add hover preview bindings
-    card_frame.bind("<Enter>", lambda e, c=carid, w=card_frame: schedule_hover_preview(c, w))
-    card_frame.bind("<Leave>", lambda e: hide_hover_preview())
-    lbl.bind("<Enter>", lambda e, c=carid, w=lbl: schedule_hover_preview(c, w))
-    lbl.bind("<Leave>", lambda e: hide_hover_preview())
-    inner_frame.bind("<Enter>", lambda e, c=carid, w=inner_frame: schedule_hover_preview(c, w))
-    inner_frame.bind("<Leave>", lambda e: hide_hover_preview())
-
-    bind_hover(card_frame, [inner_frame, lbl, btn])
+    # Use robust hover system for complete coverage
+    setup_robust_hover(card_frame, carid)
 
     carlist_items.insert(insert_position, (card_frame, carid, name))
     
@@ -2880,42 +4549,123 @@ def add_carlist_card(carid, name, developer_added=False):
         card.pack(fill="x", pady=8, padx=8)
 
 def add_vehicle_button(carid, display_name=None):
+    """Add vehicle to sidebar (the only visible vehicle list in the UI)"""
     name_to_show = display_name if display_name else carid
     
-    insert_position = 0
-    for i, (btn, cid, dname) in enumerate(vehicle_buttons):
+    # Find insert position (alphabetically)
+    insert_position = len(sidebar_vehicle_buttons)
+    for i, (container, cid, dname, add_btn_frame) in enumerate(sidebar_vehicle_buttons):
         if dname.lower() > name_to_show.lower():
             insert_position = i
             break
-        insert_position = i + 1
     
-    row_frame = ctk.CTkFrame(vehicle_scroll_frame, corner_radius=12, fg_color=colors["frame_bg"])
-
+    # Create container frame for this vehicle
+    container_frame = ctk.CTkFrame(sidebar_scroll, corner_radius=8, fg_color="transparent")
+    
+    # Create main button
     btn = ctk.CTkButton(
-        row_frame,
+        container_frame,
         text=name_to_show,
-        command=lambda c=carid: select_vehicle(c),
         fg_color=colors["card_bg"],
         hover_color=colors["card_hover"],
-        height=35,
-        corner_radius=12,
-        text_color=colors["text"]
+        height=38,
+        corner_radius=8,
+        text_color=colors["text"],
+        anchor="w",
+        font=ctk.CTkFont(size=11)
     )
-    btn.pack(fill="x", padx=8, pady=6)
-
-    # Add hover preview bindings
+    btn.pack(fill="x")
+    
+    # Create add button frame (hidden by default)
+    add_button_frame = ctk.CTkFrame(container_frame, fg_color="transparent")
+    
+    add_btn = ctk.CTkButton(
+        add_button_frame,
+        text="➕ Add to Project",
+        command=lambda c=carid: add_vehicle_to_project_from_sidebar(c),
+        fg_color=colors["accent"],
+        hover_color=colors["accent_hover"],
+        text_color=colors["accent_text"],
+        height=32,
+        corner_radius=6,
+        font=ctk.CTkFont(size=10, weight="bold")
+    )
+    add_btn.pack(fill="x")
+    
+    # Click vehicle button to toggle add button
+    btn.configure(command=lambda c=carid, frame=add_button_frame: toggle_vehicle_add_button(c, frame))
+    
+    # Hover preview bindings
     btn.bind("<Enter>", lambda e, c=carid, w=btn: schedule_hover_preview(c, w))
     btn.bind("<Leave>", lambda e: hide_hover_preview())
-
-    vehicle_buttons.insert(insert_position, (btn, carid, name_to_show))
     
-    for widget in vehicle_scroll_frame.winfo_children():
-        widget.pack_forget()
+    # Insert at correct position
+    sidebar_vehicle_buttons.insert(insert_position, (container_frame, carid, name_to_show, add_button_frame))
     
-    for button, cid, dname in vehicle_buttons:
-        button.master.pack(fill="x", pady=3, padx=5)
+    # Repack all buttons in order
+    for widget in sidebar_scroll.winfo_children():
+        if widget in [container for container, _, _, _ in sidebar_vehicle_buttons]:
+            widget.pack_forget()
+    
+    for container, cid, dname, add_frame in sidebar_vehicle_buttons:
+        container.pack(fill="x", pady=2, padx=0)
 
+print("Populating sidebar with expandable vehicles...")
+
+# Add all default vehicles to sidebar with expandable add buttons
+for carid in sorted(VEHICLE_IDS.keys(), key=lambda c: VEHICLE_IDS[c].lower()):
+    display_name = VEHICLE_IDS[carid]
+    
+    # Container for vehicle button + add button
+    container_frame = ctk.CTkFrame(sidebar_scroll, corner_radius=8, fg_color="transparent")
+    
+    # Main vehicle button
+    btn = ctk.CTkButton(
+        container_frame,
+        text=display_name,
+        fg_color=colors["card_bg"],
+        hover_color=colors["card_hover"],
+        height=38,
+        corner_radius=8,
+        text_color=colors["text"],
+        anchor="w",
+        font=ctk.CTkFont(size=11)
+    )
+    btn.pack(fill="x")
+    
+    # Add button (hidden by default)
+    add_button_frame = ctk.CTkFrame(container_frame, fg_color="transparent")
+    
+    add_btn = ctk.CTkButton(
+        add_button_frame,
+        text="➕ Add to Project",
+        command=lambda c=carid: add_vehicle_to_project_from_sidebar(c),
+        fg_color=colors["accent"],
+        hover_color=colors["accent_hover"],
+        text_color=colors["accent_text"],
+        height=32,
+        corner_radius=6,
+        font=ctk.CTkFont(size=10, weight="bold")
+    )
+    add_btn.pack(fill="x")
+    
+    # Click vehicle button to toggle add button
+    btn.configure(command=lambda c=carid, frame=add_button_frame: toggle_vehicle_add_button(c, frame))
+    
+    # Hover preview
+    btn.bind("<Enter>", lambda e, c=carid, w=btn: schedule_hover_preview(c, w))
+    btn.bind("<Leave>", lambda e: hide_hover_preview())
+    
+    # Store: (container, carid, display_name, add_button_frame)
+    sidebar_vehicle_buttons.append((container_frame, carid, display_name, add_button_frame))
+    container_frame.pack(fill="x", pady=2, padx=0)
+
+
+print(f"Added {len(sidebar_vehicle_buttons)} expandable vehicles to sidebar")
+
+# Add user-added vehicles
 for carid, carname in added_vehicles.items():
+    # Add to carlist and vehicle buttons (original functionality)
     add_carlist_card(carid, carname, developer_added=True)
     add_vehicle_button(carid, display_name=carname)
     car_id_list.append((carid, carname))
@@ -2926,4 +4676,27 @@ def on_closing():
 app.protocol("WM_DELETE_WINDOW", on_closing)
 
 if __name__ == "__main__":
+    print(f"\n[DEBUG] ========================================")
+    print(f"[DEBUG] BeamSkin Studio Starting...")
+    print(f"[DEBUG] Version: {CURRENT_VERSION}")
+    print(f"[DEBUG] ========================================\n")
+    
+    # Show WIP warning on first launch
+    print(f"[DEBUG] Checking for first launch warning...")
+    show_wip_warning()
+    
+    # Center the window on screen
+    print(f"[DEBUG] Centering window...")
+    center_window(app)
+    
+    # Create a thread so the UI stays responsive while checking for updates
+    print(f"[DEBUG] Starting update check thread...")
+    threading.Thread(target=check_for_updates, daemon=True).start()
+    
+    # CRITICAL: Initialize universal scroll handler
+    print(f"[DEBUG] Initializing scroll handler...")
+    app.after(100, setup_universal_scroll_handler)
+    
+    print(f"[DEBUG] Starting main event loop...")
+    print(f"[DEBUG] ========================================\n")
     app.mainloop()

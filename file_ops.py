@@ -383,49 +383,60 @@ def process_jbeam_files(folder_path, dds_identifier, skin_display_name, author):
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
             
-            # Update author
+            # Update author - use \g<1> and \g<2> to avoid group reference issues
             content = re.sub(
                 r'("authors"\s*:\s*")[^"]*(")',
-                rf'\1{author}\2',
+                rf'\g<1>{author}\g<2>',
                 content
             )
             
-            # Update skin display name
+            # Update skin display name - use \g<1> and \g<2>
             content = re.sub(
                 r'("name"\s*:\s*")[^"]*(")',
-                rf'\1{skin_display_name}\2',
+                rf'\g<1>{skin_display_name}\g<2>',
                 content
             )
             
             # Update first skin reference (e.g., "prefix_skinname": -> "prefix_newskin":)
+            # Using a function to avoid group reference issues
+            def replace_first_skin_key(match):
+                return f'"{match.group(1)}{dds_identifier}":'
+            
             content = re.sub(
                 r'"([^"]*_)[^"]+":',
-                lambda m: f'"{m.group(1)}{dds_identifier}":',
+                replace_first_skin_key,
                 content,
                 count=1
             )
             
-            # Update globalSkin
+            # Update globalSkin - use \g<1> and \g<2>
             content = re.sub(
                 r'("globalSkin"\s*:\s*")[^"]*(")',
-                rf'\1{dds_identifier}\2',
+                rf'\g<1>{dds_identifier}\g<2>',
                 content
             )
             
-            # Update _extra.skin references
+            # Update _extra.skin references using functions
+            def replace_extra_skin(match):
+                return f'"{match.group(1)}{dds_identifier}"'
+            
             content = re.sub(
                 r'"([^"]*_extra\.skin\.)[^"]+"',
-                lambda m: f'"{m.group(1)}{dds_identifier}"',
+                replace_extra_skin,
                 content
             )
+            
+            def replace_extra_skin_name(match):
+                return f'{match.group(1)}{dds_identifier}"'
+            
             content = re.sub(
                 r'("name"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
-                lambda m: f'{m.group(1)}{dds_identifier}"',
+                replace_extra_skin_name,
                 content
             )
             content = re.sub(
                 r'("mapTo"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
-                lambda m: f'{m.group(1)}{dds_identifier}"',
+                replace_extra_skin_name,
                 content
             )
             
@@ -454,47 +465,62 @@ def process_json_files(folder_path, vehicle_id, skin_folder_name, dds_filename, 
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
             
-            # Update generic .skin. references (first occurrence)
+            # Update generic .skin. references using functions to avoid group reference issues
+            def replace_skin_ref(match):
+                return f'"{match.group(1)}{dds_identifier}"'
+            
             content = re.sub(
                 r'"([^"]+\.skin\.)[^"]+"',
-                lambda m: f'"{m.group(1)}{dds_identifier}"',
+                replace_skin_ref,
                 content,
                 count=1
             )
+            
+            def replace_skin_name(match):
+                return f'{match.group(1)}{dds_identifier}"'
+            
             content = re.sub(
                 r'("name"\s*:\s*"[^"]+\.skin\.)[^"]+"',
-                lambda m: f'{m.group(1)}{dds_identifier}"',
+                replace_skin_name,
                 content,
                 count=1
             )
             content = re.sub(
                 r'("mapTo"\s*:\s*"[^"]+\.skin\.)[^"]+"',
-                lambda m: f'{m.group(1)}{dds_identifier}"',
+                replace_skin_name,
                 content,
                 count=1
             )
             
             # Update _extra.skin references (all occurrences)
+            def replace_extra_skin_all(match):
+                return f'"{match.group(1)}{dds_identifier}"'
+            
             content = re.sub(
                 r'"([^"]*_extra\.skin\.)[^"]+"',
-                lambda m: f'"{m.group(1)}{dds_identifier}"',
+                replace_extra_skin_all,
                 content
             )
+            
+            def replace_extra_skin_name_all(match):
+                return f'{match.group(1)}{dds_identifier}"'
+            
             content = re.sub(
                 r'("name"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
-                lambda m: f'{m.group(1)}{dds_identifier}"',
+                replace_extra_skin_name_all,
                 content
             )
             content = re.sub(
                 r'("mapTo"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
-                lambda m: f'{m.group(1)}{dds_identifier}"',
+                replace_extra_skin_name_all,
                 content
             )
             
-            # Update baseColorMap path
+            # Update baseColorMap path - construct the replacement string safely
+            baseColorMap_replacement = f'"baseColorMap": "vehicles/{vehicle_id}/{skin_folder_name}/{dds_filename}"'
             content = re.sub(
                 r'"baseColorMap"\s*:\s*"[^"]+\.dds"',
-                rf'"baseColorMap": "vehicles/{vehicle_id}/{skin_folder_name}/{dds_filename}"',
+                baseColorMap_replacement,
                 content
             )
             

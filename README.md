@@ -1,8 +1,32 @@
-THIS TOOL IS WORK-IN-PROGRESS
+# BeamSkin Studio
 
-DOING VEHICLE VARIATION SPECIFICALLY HAVE NOT BEEN IMPLEMTED YET LIKE AMBULANCE \ BOX \ SEDAN \ WAGON ECT...
+## Installation
 
-THE ADD VEHICLE IN DEVELOPER TAB IS MADE TO ADD MOD CARS BUT THE JSON EDITING CODE IS NOT WORKING PROPERLY
+1. **Clone or download this repository**
 
-IF YOU ARE EXPERIENCED WITH PYTHON AND HOW BEAMNG WORKS WHEN IT COMES TO SKIN LOADING WITH THE SKIN.MATERIAL FILES 
-AND WOULD LIKE TO HELP ME WITH THE CODE YOU CAN EMAIL ME AT johanssonserlanderkevin@gmail.com
+2. **Install Python dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run the application**
+   ```bash
+   python main.py
+   ```
+
+## Requirements
+
+- Python 3.8 or higher
+- See `requirements.txt` for package dependencies
+
+## Features
+
+- Automatic update checking (checks GitHub for new versions on startup)
+- Current version is pulled from `version.txt`
+
+## Troubleshooting
+
+If you get a `ModuleNotFoundError`, make sure you've installed all dependencies:
+```bash
+pip install -r requirements.txt
+```
