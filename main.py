@@ -776,8 +776,19 @@ def create_debug_window():
         debug_textbox.delete("0.0", "end")
         print("Debug console cleared")
     
+    # Copy button
+    def copy_debug():
+        content = debug_textbox.get("0.0", "end-1c")
+        app.clipboard_clear()
+        app.clipboard_append(content)
+        print("Debug console content copied to clipboard")
+        show_notification("✓ Debug output copied to clipboard!", "success", 2000)
+    
+    ctk.CTkButton(header_frame, text="Copy All", width=80, command=copy_debug,
+                  fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"]).pack(side="right", padx=5, pady=10)
+    
     ctk.CTkButton(header_frame, text="Clear", width=80, command=clear_debug,
-                  fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"]).pack(side="right", padx=10, pady=10)
+                  fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"]).pack(side="right", padx=(5, 10), pady=10)
     
     # Debug output textbox
     debug_textbox = ctk.CTkTextbox(debug_window, font=ctk.CTkFont(family="Consolas", size=11),
