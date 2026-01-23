@@ -17,6 +17,13 @@ import re
 import copy
 import requests
 
+# FIX: Change working directory to script location
+# This ensures relative paths work correctly
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
+print(f"[DEBUG] Changed working directory to: {os.getcwd()}")
+print(f"[DEBUG] Script location: {script_dir}")
+
 def setup_universal_scroll_handler():
     """
     Sets up intelligent scroll handling that automatically detects
@@ -137,7 +144,7 @@ def delete_vehicle_folders(carid):
     image_folder = os.path.join("imagesforgui", "vehicles", carid)
     if os.path.exists(image_folder):
         shutil.rmtree(image_folder)
-        print(f"Deleted preview image folder: {image_folder}")
+        print(f"[DEBUG] Deleted preview image folder: {image_folder}")
 
 
 def edit_material_json(json_path, skinname_folder, carid):
@@ -157,17 +164,17 @@ def edit_material_json(json_path, skinname_folder, carid):
     skinname = "skinname"
     
     try:
-        print(f"\n--- Starting JSON Edit Process ---")
-        print(f"Reading JSON file: {json_path}")
-        print(f"Target Car ID: {carid}")
-        print(f"Using placeholder: 'skinname' (will be replaced by generator)")
+        print(f"[DEBUG] \n--- Starting JSON Edit Process ---")
+        print(f"[DEBUG] Reading JSON file: {json_path}")
+        print(f"[DEBUG] Target Car ID: {carid}")
+        print(f"[DEBUG] Using placeholder: 'skinname' (will be replaced by generator)")
         
         # Read the raw file content
         with open(json_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Clean the JSON content
-        print("Cleaning JSON (removing comments and fixing trailing commas)...")
+        print("[DEBUG] Cleaning JSON (removing comments and fixing trailing commas)...")
         
         # Remove single-line comments (// ...)
         lines = content.split('\n')
@@ -207,15 +214,15 @@ def edit_material_json(json_path, skinname_folder, carid):
         try:
             data = json.loads(content)
         except json.JSONDecodeError as e:
-            print(f"ERROR: Could not parse JSON even after cleaning - {e}")
-            print("Attempting to save cleaned version for manual inspection...")
+            print(f"[DEBUG] ERROR: Could not parse JSON even after cleaning - {e}")
+            print("[DEBUG] Attempting to save cleaned version for manual inspection...")
             cleaned_path = json_path + ".cleaned"
             with open(cleaned_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            print(f"Cleaned JSON saved to: {cleaned_path}")
+            print(f"[DEBUG] Cleaned JSON saved to: {cleaned_path}")
             raise
         
-        print(f"Original JSON contains {len(data)} entries")
+        print(f"[DEBUG] Original JSON contains {len(data)} entries")
         
         # Find all skin names in the JSON
         # Extract the skin name suffix (e.g., ".skin.customskin")
@@ -229,12 +236,12 @@ def edit_material_json(json_path, skinname_folder, carid):
                     skin_suffixes.add(f".skin.{parts[1]}")
         
         if not skin_suffixes:
-            print("WARNING: No skin entries found in JSON")
+            print("[DEBUG] WARNING: No skin entries found in JSON")
             return
         
         # Use the first skin suffix found
         target_suffix = list(skin_suffixes)[0]
-        print(f"Target skin suffix: {target_suffix}")
+        print(f"[DEBUG] Target skin suffix: {target_suffix}")
         
         # Filter and rename data
         filtered_data = {}
@@ -247,7 +254,7 @@ def edit_material_json(json_path, skinname_folder, carid):
                     # Create new key with the new skinname
                     new_key = f"{prefix}.skin.{skinname}"
                     
-                    print(f"Processing: {key} → {new_key}")
+                    print(f"[DEBUG] Processing: {key} → {new_key}")
                     
                     # Deep copy the value to avoid modifying original
                     new_value = copy.deepcopy(value)
@@ -255,11 +262,11 @@ def edit_material_json(json_path, skinname_folder, carid):
                     # Update name and mapTo fields
                     if "name" in new_value:
                         new_value["name"] = new_key
-                        print(f"  Updated name: {new_key}")
+                        print(f"[DEBUG]   Updated name: {new_key}")
                     
                     if "mapTo" in new_value:
                         new_value["mapTo"] = new_key
-                        print(f"  Updated mapTo: {new_key}")
+                        print(f"[DEBUG]   Updated mapTo: {new_key}")
                     
                     # Update baseColorMap in Stage 2 (index 1)
                     if "Stages" in new_value and isinstance(new_value["Stages"], list):
@@ -272,13 +279,13 @@ def edit_material_json(json_path, skinname_folder, carid):
                                 base_name = prefix.split('_')[0]
                                 new_path = f"vehicles/{carid}/{skinname}/{base_name}_skin_{skinname}.dds"
                                 stage2["baseColorMap"] = new_path
-                                print(f"  Updated baseColorMap in Stage 2:")
-                                print(f"    Old: {old_path}")
-                                print(f"    New: {new_path}")
+                                print(f"[DEBUG]   Updated baseColorMap in Stage 2:")
+                                print(f"[DEBUG]     Old: {old_path}")
+                                print(f"[DEBUG]     New: {new_path}")
                     
                     filtered_data[new_key] = new_value
         
-        print(f"\nFiltered JSON contains {len(filtered_data)} entries")
+        print(f"[DEBUG] \nFiltered JSON contains {len(filtered_data)} entries")
         
         # Write the edited JSON back to the folder
         json_filename = os.path.basename(json_path)
@@ -287,21 +294,21 @@ def edit_material_json(json_path, skinname_folder, carid):
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(filtered_data, f, indent=4)
         
-        print(f"Edited JSON saved to: {output_path}")
-        print(f"--- JSON Edit Complete ---\n")
+        print(f"[DEBUG] Edited JSON saved to: {output_path}")
+        print(f"[DEBUG] --- JSON Edit Complete ---\n")
         
     except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON format - {e}")
+        print(f"[DEBUG] ERROR: Invalid JSON format - {e}")
         raise Exception(f"Invalid JSON format: {str(e)}")
     except Exception as e:
-        print(f"ERROR during JSON editing: {e}")
+        print(f"[DEBUG] ERROR during JSON editing: {e}")
         raise
         
     except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON format - {e}")
+        print(f"[DEBUG] ERROR: Invalid JSON format - {e}")
         raise Exception(f"Invalid JSON format: {str(e)}")
     except Exception as e:
-        print(f"ERROR during JSON editing: {e}")
+        print(f"[DEBUG] ERROR during JSON editing: {e}")
         raise
 
 
@@ -490,17 +497,17 @@ def edit_jbeam_material(jbeam_path, skinname_folder, carid):
     during mod generation with actual values from the Generator tab.
     """
     try:
-        print(f"\n--- Starting JBEAM Edit Process ---")
-        print(f"Reading JBEAM file: {jbeam_path}")
-        print(f"Target Car ID: {carid}")
-        print(f"Using placeholders: 'Author Name' and 'Skin Name' (will be replaced by generator)")
+        print(f"[DEBUG] \n--- Starting JBEAM Edit Process ---")
+        print(f"[DEBUG] Reading JBEAM file: {jbeam_path}")
+        print(f"[DEBUG] Target Car ID: {carid}")
+        print(f"[DEBUG] Using placeholders: 'Author Name' and 'Skin Name' (will be replaced by generator)")
         
         # Read the raw file content
         with open(jbeam_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Clean the JBEAM content (remove comments)
-        print("Cleaning JBEAM (removing comments)...")
+        print("[DEBUG] Cleaning JBEAM (removing comments)...")
         
         # Remove single-line comments (// ...)
         lines = content.split('\n')
@@ -538,15 +545,15 @@ def edit_jbeam_material(jbeam_path, skinname_folder, carid):
         try:
             data = json.loads(content)
         except json.JSONDecodeError as e:
-            print(f"ERROR: Could not parse JBEAM even after cleaning - {e}")
-            print("Attempting to save cleaned version for manual inspection...")
+            print(f"[DEBUG] ERROR: Could not parse JBEAM even after cleaning - {e}")
+            print("[DEBUG] Attempting to save cleaned version for manual inspection...")
             cleaned_path = jbeam_path + ".cleaned"
             with open(cleaned_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            print(f"Cleaned JBEAM saved to: {cleaned_path}")
+            print(f"[DEBUG] Cleaned JBEAM saved to: {cleaned_path}")
             raise
         
-        print(f"Original JBEAM contains {len(data)} entries")
+        print(f"[DEBUG] Original JBEAM contains {len(data)} entries")
         
         # STEP 1: Find all skin entries (keys containing "_skin_")
         skin_entries = []
@@ -555,58 +562,58 @@ def edit_jbeam_material(jbeam_path, skinname_folder, carid):
                 skin_entries.append((key, data[key]))
         
         if not skin_entries:
-            print("WARNING: No skin entries found in JBEAM")
+            print("[DEBUG] WARNING: No skin entries found in JBEAM")
             return
         
-        print(f"Found {len(skin_entries)} skin entries")
+        print(f"[DEBUG] Found {len(skin_entries)} skin entries")
         
         # STEP 2: Keep only the FIRST skin entry
         first_skin_key, first_skin_value = skin_entries[0]
-        print(f"\n✓ Canonical skin identified: {first_skin_key}")
+        print(f"[DEBUG] \n✓ Canonical skin identified: {first_skin_key}")
         
         if len(skin_entries) > 1:
             removed_skins = [key for key, _ in skin_entries[1:]]
-            print(f"✗ Removing {len(removed_skins)} other skin(s): {', '.join(removed_skins)}")
+            print(f"[DEBUG] ✗ Removing {len(removed_skins)} other skin(s): {', '.join(removed_skins)}")
         
         # STEP 3: Create the new skin entry
         new_key = f"{carid}_skin_skinname"
         new_value = copy.deepcopy(first_skin_value)
         
-        print(f"\n✓ Renaming: {first_skin_key} → {new_key}")
+        print(f"[DEBUG] \n✓ Renaming: {first_skin_key} → {new_key}")
         
         # STEP 4: Update authors and name fields to placeholders
         if "information" in new_value and isinstance(new_value["information"], dict):
             if "authors" in new_value["information"]:
                 old_author = new_value["information"]["authors"]
                 new_value["information"]["authors"] = "Author Name"
-                print(f"  ✓ Updated authors: '{old_author}' → 'Author Name' (placeholder)")
+                print(f"[DEBUG]   ✓ Updated authors: '{old_author}' → 'Author Name' (placeholder)")
             
             if "name" in new_value["information"]:
                 old_name = new_value["information"]["name"]
                 new_value["information"]["name"] = "Skin Name"
-                print(f"  ✓ Updated name: '{old_name}' → 'Skin Name' (placeholder)")
+                print(f"[DEBUG]   ✓ Updated name: '{old_name}' → 'Skin Name' (placeholder)")
             
             # Preserve value field
             if "value" in new_value["information"]:
-                print(f"  ✓ Preserved value: {new_value['information']['value']}")
+                print(f"[DEBUG]   ✓ Preserved value: {new_value['information']['value']}")
         
         # STEP 5: Update globalSkin to "skinname"
         if "globalSkin" in new_value:
             old_global_skin = new_value["globalSkin"]
             new_value["globalSkin"] = "skinname"
-            print(f"  ✓ Updated globalSkin: '{old_global_skin}' → 'skinname'")
+            print(f"[DEBUG]   ✓ Updated globalSkin: '{old_global_skin}' → 'skinname'")
         
         # STEP 6: Preserve all other fields (slotType, etc.)
         if "slotType" in new_value:
-            print(f"  ✓ Preserved slotType: '{new_value['slotType']}'")
+            print(f"[DEBUG]   ✓ Preserved slotType: '{new_value['slotType']}'")
         
         # Create the filtered data with only the new skin entry
         filtered_data = {new_key: new_value}
         
-        print(f"\n--- Summary ---")
-        print(f"Original skins: {len(skin_entries)}")
-        print(f"Final skins: 1")
-        print(f"Removed: {len(skin_entries) - 1}")
+        print(f"[DEBUG] \n--- Summary ---")
+        print(f"[DEBUG] Original skins: {len(skin_entries)}")
+        print(f"[DEBUG] Final skins: 1")
+        print(f"[DEBUG] Removed: {len(skin_entries) - 1}")
         
         # Write the edited JBEAM back to the folder, keeping original filename
         jbeam_filename = os.path.basename(jbeam_path)
@@ -615,14 +622,14 @@ def edit_jbeam_material(jbeam_path, skinname_folder, carid):
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(filtered_data, f, indent=4)
         
-        print(f"Edited JBEAM saved to: {output_path}")
-        print(f"--- JBEAM Edit Complete ---\n")
+        print(f"[DEBUG] Edited JBEAM saved to: {output_path}")
+        print(f"[DEBUG] --- JBEAM Edit Complete ---\n")
         
     except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JBEAM format - {e}")
+        print(f"[DEBUG] ERROR: Invalid JBEAM format - {e}")
         raise Exception(f"Invalid JBEAM format: {str(e)}")
     except Exception as e:
-        print(f"ERROR during JBEAM editing: {e}")
+        print(f"[DEBUG] ERROR during JBEAM editing: {e}")
         raise
 
 
@@ -774,14 +781,14 @@ def create_debug_window():
     # Clear button
     def clear_debug():
         debug_textbox.delete("0.0", "end")
-        print("Debug console cleared")
+        print("[DEBUG] Debug console cleared")
     
     # Copy button
     def copy_debug():
         content = debug_textbox.get("0.0", "end-1c")
         app.clipboard_clear()
         app.clipboard_append(content)
-        print("Debug console content copied to clipboard")
+        print("[DEBUG] Debug console content copied to clipboard")
         show_notification("✓ Debug output copied to clipboard!", "success", 2000)
     
     ctk.CTkButton(header_frame, text="Copy All", width=80, command=copy_debug,
@@ -795,9 +802,9 @@ def create_debug_window():
                                     fg_color=colors["frame_bg"], text_color=colors["accent"])
     debug_textbox.pack(fill="both", expand=True, padx=10, pady=(0,10))
     
-    print("="*50)
-    print("DEBUG MODE ENABLED")
-    print("="*50)
+    print("[DEBUG] ="*50)
+    print("[DEBUG] DEBUG MODE ENABLED")
+    print("[DEBUG] ="*50)
     
     def on_debug_window_close():
         global debug_mode_enabled, debug_window
@@ -805,7 +812,7 @@ def create_debug_window():
         debug_mode_var.set(False)
         debug_window.destroy()
         debug_window = None
-        print("Debug mode disabled")
+        print("[DEBUG] Debug mode disabled")
     
     debug_window.protocol("WM_DELETE_WINDOW", on_debug_window_close)
 
@@ -816,12 +823,12 @@ def toggle_debug_mode():
     if debug_mode_var.get():
         debug_mode_enabled = True
         create_debug_window()
-        print("Debug mode activated")
+        print("[DEBUG] Debug mode activated")
     else:
         debug_mode_enabled = False
         if debug_window is not None and debug_window.winfo_exists():
             debug_window.destroy()
-        print("Debug mode deactivated")
+        print("[DEBUG] Debug mode deactivated")
 
 # Redirect stdout to our custom output
 sys.stdout = DebugOutput()
@@ -836,29 +843,56 @@ current_hover_carid = None
 
 def show_hover_preview(carid, x, y):
     """Show preview image for vehicle INSIDE the main window"""
+    print(f"[DEBUG] show_hover_preview called for carid: {carid}")
+    print(f"[DEBUG] Current working directory: {os.getcwd()}")
+    
     # 1. Get live mouse position relative to the main window
     mouse_x = app.winfo_pointerx() - app.winfo_rootx()
     mouse_y = app.winfo_pointery() - app.winfo_rooty()
+    print(f"[DEBUG] Mouse position: ({mouse_x}, {mouse_y})")
 
     # 2. Clear previous content
     for child in preview_overlay.winfo_children():
         child.destroy()
 
     image_path = os.path.join("imagesforgui", "vehicles", carid, "default.jpg")
+    print(f"[DEBUG] Looking for image at: {image_path}")
+    print(f"[DEBUG] Absolute path: {os.path.abspath(image_path)}")
+    print(f"[DEBUG] Image exists: {os.path.exists(image_path)}")
     
     # Use fallback image if preview doesn't exist
     if not os.path.exists(image_path):
+        print(f"[DEBUG] Image not found, trying fallback...")
+        
+        # Debug: Check what's actually in the imagesforgui directory
+        if os.path.exists("imagesforgui"):
+            print(f"[DEBUG] imagesforgui exists, listing contents:")
+            try:
+                print(f"[DEBUG] imagesforgui contents: {os.listdir('imagesforgui')}")
+                if os.path.exists(os.path.join("imagesforgui", "vehicles")):
+                    print(f"[DEBUG] vehicles folder contents: {os.listdir(os.path.join('imagesforgui', 'vehicles'))}")
+            except Exception as e:
+                print(f"[DEBUG] Error listing directories: {e}")
+        else:
+            print(f"[DEBUG] imagesforgui folder does NOT exist in current directory")
+        
         fallback_path = os.path.join("imagesforgui", "common", "imagepreview", "MissingTexture.jpg")
+        print(f"[DEBUG] Fallback path: {fallback_path}")
+        print(f"[DEBUG] Fallback absolute path: {os.path.abspath(fallback_path)}")
+        print(f"[DEBUG] Fallback exists: {os.path.exists(fallback_path)}")
         if os.path.exists(fallback_path):
             image_path = fallback_path
         else:
+            print(f"[DEBUG] No fallback found, returning early")
             return
 
     try:
         # Load Image
+        print(f"[DEBUG] Attempting to load image: {image_path}")
         img = Image.open(image_path)
         img.thumbnail((300, 300), Image.Resampling.LANCZOS)
         photo = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+        print(f"[DEBUG] Image loaded successfully, size: {img.size}")
 
         # Build UI
         header = ctk.CTkFrame(preview_overlay, fg_color=colors["accent"], height=30, corner_radius=8)
@@ -877,6 +911,7 @@ def show_hover_preview(carid, x, y):
         preview_overlay.update_idletasks()
         p_width = preview_overlay.winfo_reqwidth()
         p_height = preview_overlay.winfo_reqheight()
+        print(f"[DEBUG] Preview dimensions: {p_width}x{p_height}, App dimensions: {app_w}x{app_h}")
 
         # HORIZONTAL LOGIC
         # Default: 20px to the right of cursor
@@ -896,17 +931,23 @@ def show_hover_preview(carid, x, y):
         # FINAL SAFETY: Never let it go off the top (y<0) or left (x<0)
         pos_x = max(10, pos_x)
         pos_y = max(10, pos_y)
+        print(f"[DEBUG] Placing preview at: ({pos_x}, {pos_y})")
 
         # 4. Display
         preview_overlay.place(x=pos_x, y=pos_y)
         preview_overlay.lift()
+        print(f"[DEBUG] Preview overlay placed and lifted")
 
     except Exception as e:
-        print(f"Internal Preview Error: {e}")
+        print(f"[DEBUG] Internal Preview Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 def hide_hover_preview(calling_carid=None, force=False):
     """Hide the internal preview overlay"""
     global hover_timer, current_hover_carid
+    
+    print(f"[DEBUG] hide_hover_preview called, calling_carid={calling_carid}, force={force}, current_hover_carid={current_hover_carid}")
     
     # Handle the timer
     if force or calling_carid is None or current_hover_carid == calling_carid:
@@ -937,17 +978,22 @@ def schedule_hover_preview(carid, widget):
     """Schedule preview to show after a short delay"""
     global hover_timer, current_hover_carid
     
+    print(f"[DEBUG] schedule_hover_preview called for carid: {carid}")
+    
     # If we are already showing this car, do nothing
     if current_hover_carid == carid:
+        print(f"[DEBUG] Already showing this car, skipping")
         return
 
     # Cancel any pending timers for other cars
     if hover_timer is not None:
+        print(f"[DEBUG] Canceling previous hover timer")
         app.after_cancel(hover_timer)
     
     current_hover_carid = carid
     
     # Show preview after a short delay (400ms feels snappier than 1000ms)
+    print(f"[DEBUG] Scheduling preview to show in 400ms")
     hover_timer = app.after(400, lambda: show_hover_preview(carid, widget.winfo_pointerx(), widget.winfo_pointery()))
 
     # CORRECTED CODE (The block after the def is shifted right):
@@ -1023,7 +1069,7 @@ def save_added_vehicles():
 
 
 
-print("Starting BeamSkin Studio...")
+print("[DEBUG] Starting BeamSkin Studio...")
 
 # -----------------------
 # Setup
@@ -1489,14 +1535,14 @@ def select_dds():
     if path:
         dds_path_var.set(path)
         load_dds_preview(path)
-        print(f"DDS file selected: {path}")
+        print(f"[DEBUG] DDS file selected: {path}")
 
 def load_dds_preview(file_path):
     global dds_preview_label
     try:
         img = Image.open(file_path)
         w, h = img.size
-        print(f"DDS image loaded: {w}x{h}")
+        print(f"[DEBUG] DDS image loaded: {w}x{h}")
         max_size = 200
         if w > h:
             new_w = max_size
@@ -1510,7 +1556,7 @@ def load_dds_preview(file_path):
             dds_preview_label.configure(image=photo, text="")
             dds_preview_label.image = photo
     except Exception as e:
-        print(f"Failed to load DDS preview: {e}")
+        print(f"[DEBUG] Failed to load DDS preview: {e}")
         if dds_preview_label:
             dds_preview_label.configure(text="Preview\nUnavailable", image=None)
 
@@ -1519,7 +1565,7 @@ def select_custom_output():
     if folder:
         custom_output_var.set(folder)
         output_mode_var.set("custom")
-        print(f"Custom output directory selected: {folder}")
+        print(f"[DEBUG] Custom output directory selected: {folder}")
 
 def update_progress(value):
     if progress_bar and progress_bar.winfo_ismapped():
@@ -1579,7 +1625,7 @@ def select_vehicle(carid):
             display_name = dname
             break
     
-    print(f"Vehicle selected: {display_name} (ID: {carid})")
+    print(f"[DEBUG] Vehicle selected: {display_name} (ID: {carid})")
     vehicle_display_var.set(display_name)  # Show the display name in UI
     
     # Update button colors
@@ -1650,10 +1696,10 @@ def save_project():
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(project_data, f, indent=4)
             show_notification(f"✓ Project saved to {os.path.basename(file_path)}", "success", 3000)
-            print(f"Project saved to: {file_path}")
+            print(f"[DEBUG] Project saved to: {file_path}")
         except Exception as e:
             show_notification(f"Failed to save project: {str(e)}", "error", 4000)
-            print(f"ERROR saving project: {e}")
+            print(f"[DEBUG] ERROR saving project: {e}")
 
 
 
@@ -1709,9 +1755,9 @@ def load_project():
                     "Missing Files",
                     error_message.strip()
                 )
-                print(f"Project load failed - Missing files:")
+                print(f"[DEBUG] Project load failed - Missing files:")
                 for missing in missing_files:
-                    print(f"  {missing['car']} ({missing['car_id']}) - {missing['skin']}: {missing['path']}")
+                    print(f"[DEBUG]   {missing['car']} ({missing['car_id']}) - {missing['skin']}: {missing['path']}")
                 return
             
             # Load the project
@@ -1731,11 +1777,11 @@ def load_project():
             car_count = len(project_data["cars"])
             total_skins = sum(len(car_info['skins']) for car_info in project_data['cars'].values())
             show_notification(f"✓ Loaded project: {car_count} cars, {total_skins} skins", "success", 4000)
-            print(f"Project loaded from: {file_path}")
+            print(f"[DEBUG] Project loaded from: {file_path}")
             
         except Exception as e:
             show_notification(f"Failed to load project: {str(e)}", "error", 4000)
-            print(f"ERROR loading project: {e}")
+            print(f"[DEBUG] ERROR loading project: {e}")
 
 
 
@@ -2168,9 +2214,9 @@ def generate_multi_skin_mod():
     """Generate the mod with all cars and skins"""
     global project_data
     
-    print("\n" + "="*50)
-    print("MULTI-SKIN MOD GENERATION INITIATED")
-    print("="*50)
+    print("[DEBUG] \n" + "="*50)
+    print("[DEBUG] MULTI-SKIN MOD GENERATION INITIATED")
+    print("[DEBUG] ="*50)
     
     # Validation
     mod_name = get_real_value(mod_name_entry_sidebar, "Enter mod name...").strip()
@@ -2200,11 +2246,11 @@ def generate_multi_skin_mod():
     project_data["mod_name"] = mod_name
     project_data["author"] = author_name if author_name else "Unknown"
     
-    print(f"Mod Name: {mod_name}")
-    print(f"Author: {project_data['author']}")
-    print(f"Cars: {len(project_data['cars'])}")
+    print(f"[DEBUG] Mod Name: {mod_name}")
+    print(f"[DEBUG] Author: {project_data['author']}")
+    print(f"[DEBUG] Cars: {len(project_data['cars'])}")
     total_skins = sum(len(car_info['skins']) for car_info in project_data['cars'].values())
-    print(f"Total Skins: {total_skins}")
+    print(f"[DEBUG] Total Skins: {total_skins}")
     
     export_status_label.configure(text="Preparing to export...")
     export_status_label.pack(padx=20, pady=(10,5))
@@ -2218,7 +2264,7 @@ def generate_multi_skin_mod():
 
     def thread_fn():
         try:
-            print("\nStarting mod generation thread...")
+            print("[DEBUG] \nStarting mod generation thread...")
             update_status("Processing skins...")
             
             # Create custom progress callback
@@ -2240,8 +2286,8 @@ def generate_multi_skin_mod():
             )
             
             update_status("Export completed successfully!")
-            print("Mod generation completed successfully!")
-            print("="*50 + "\n")
+            print("[DEBUG] Mod generation completed successfully!")
+            print("[DEBUG] ="*50 + "\n")
             show_notification(f"✓ Mod '{mod_name}' created with {total_skins} skins!", "success", 5000)
             
             # Ask if user wants to clear project
@@ -2249,11 +2295,11 @@ def generate_multi_skin_mod():
             
         except FileExistsError as e:
             update_status("Error: File already exists")
-            print(f"ERROR: File already exists - {e}")
+            print(f"[DEBUG] ERROR: File already exists - {e}")
             show_notification(f"File already exists: {str(e)}", "error", 5000)
         except Exception as e:
             update_status("Error: Export failed")
-            print(f"ERROR: {e}")
+            print(f"[DEBUG] ERROR: {e}")
             import traceback
             traceback.print_exc()
             show_notification(f"Error: {str(e)}", "error", 5000)
@@ -2275,38 +2321,38 @@ def generate_multi_skin_mod():
 def on_generate():
     global selected_carid
     
-    print("\n" + "="*50)
-    print("GENERATE MOD INITIATED")
-    print("="*50)
+    print("[DEBUG] \n" + "="*50)
+    print("[DEBUG] GENERATE MOD INITIATED")
+    print("[DEBUG] ="*50)
     
     if not mod_name_var.get():
-        print("ERROR: No mod name provided")
+        print("[DEBUG] ERROR: No mod name provided")
         show_notification("Please enter a Mod Name", "error")
         return
     if not skin_name_var.get():
-        print("ERROR: No skin name provided")
+        print("[DEBUG] ERROR: No skin name provided")
         show_notification("Please enter a Skin Name", "error")
         return
     if not dds_path_var.get():
-        print("ERROR: No DDS file selected")
+        print("[DEBUG] ERROR: No DDS file selected")
         show_notification("Please select a DDS file", "error")
         return
 
     output_path = custom_output_var.get() if output_mode_var.get() == "custom" else None
 
     if not selected_carid:
-        print("ERROR: No vehicle selected")
+        print("[DEBUG] ERROR: No vehicle selected")
         show_notification("Invalid vehicle selection", "error")
         return
 
-    print(f"Mod Name: {mod_name_var.get()}")
-    print(f"Skin Name: {skin_name_var.get()}")
-    print(f"Author: {author_var.get()}")
-    print(f"Vehicle ID: {selected_carid}")
-    print(f"DDS Path: {dds_path_var.get()}")
-    print(f"Output Mode: {output_mode_var.get()}")
+    print(f"[DEBUG] Mod Name: {mod_name_var.get()}")
+    print(f"[DEBUG] Skin Name: {skin_name_var.get()}")
+    print(f"[DEBUG] Author: {author_var.get()}")
+    print(f"[DEBUG] Vehicle ID: {selected_carid}")
+    print(f"[DEBUG] DDS Path: {dds_path_var.get()}")
+    print(f"[DEBUG] Output Mode: {output_mode_var.get()}")
     if output_path:
-        print(f"Custom Output Path: {output_path}")
+        print(f"[DEBUG] Custom Output Path: {output_path}")
     
     export_status_label.configure(text="Preparing to export...")
     export_status_label.pack(padx=20, pady=(10,5))
@@ -2320,7 +2366,7 @@ def on_generate():
 
     def thread_fn():
         try:
-            print("\nStarting mod generation thread...")
+            print("[DEBUG] \nStarting mod generation thread...")
             update_status("Copying template files...")
             
             # Create custom progress callback that also updates status
@@ -2345,16 +2391,16 @@ def on_generate():
                 author=author_var.get()
             )
             update_status("Export completed successfully!")
-            print("Mod generation completed successfully!")
-            print("="*50 + "\n")
+            print("[DEBUG] Mod generation completed successfully!")
+            print("[DEBUG] ="*50 + "\n")
             show_notification("✓ Mod created and installed successfully!", "success", 5000)
         except FileExistsError as e:
             update_status("Error: File already exists")
-            print(f"ERROR: File already exists - {e}")
+            print(f"[DEBUG] ERROR: File already exists - {e}")
             show_notification(f"File already exists: {str(e)}", "error", 5000)
         except Exception as e:
             update_status("Error: Export failed")
-            print(f"ERROR: {e}")
+            print(f"[DEBUG] ERROR: {e}")
             import traceback
             traceback.print_exc()
             show_notification(f"Error: {str(e)}", "error", 5000)
@@ -2731,8 +2777,8 @@ def toggle_theme():
         app_settings["theme"] = current_theme
         save_settings()
         
-        print(f"Theme changed to: {current_theme}")
-        print("Restarting application...")
+        print(f"[DEBUG] Theme changed to: {current_theme}")
+        print("[DEBUG] Restarting application...")
         
         # Restart the application
         import sys
@@ -3356,7 +3402,7 @@ def load_chapter(chapter_key):
         else:
             btn.configure(fg_color=colors["card_bg"], text_color=colors["text"])
     
-    print(f"Loaded: {chapter_key} - {chapter_title}")
+    print(f"[DEBUG] Loaded: {chapter_key} - {chapter_title}")
 
 def load_all_chapters():
     """Load all chapters into the text box"""
@@ -3385,7 +3431,7 @@ Use the chapter buttons above to jump to specific sections, or scroll through al
     for btn, key in chapter_buttons:
         btn.configure(fg_color=colors["card_bg"], text_color=colors["text"])
     
-    print("Loaded all chapters")
+    print("[DEBUG] Loaded all chapters")
 
 # Create "View All" button in first row
 view_all_btn = ctk.CTkButton(
@@ -3505,7 +3551,7 @@ def get_uv_map(carid):
     # Check if the ZIP file exists
     if not os.path.exists(zip_file_path):
         show_notification(f"❌ Vehicle ZIP not found: {carid}.zip", "error", 4000)
-        print(f"UV Map search failed: ZIP file does not exist - {zip_file_path}")
+        print(f"[DEBUG] UV Map search failed: ZIP file does not exist - {zip_file_path}")
         return
     
     try:
@@ -3567,7 +3613,7 @@ def get_uv_map(carid):
             if search_common and common_search_dirs:
                 common_zip_path = os.path.join(beamng_path, "common.zip")
                 if os.path.exists(common_zip_path):
-                    print(f"Also searching in common.zip for ambulance UV maps...")
+                    print(f"[DEBUG] Also searching in common.zip for ambulance UV maps...")
                     with zipfile.ZipFile(common_zip_path, 'r') as common_zip:
                         common_files = common_zip.namelist()
                         
@@ -3594,14 +3640,14 @@ def get_uv_map(carid):
             
             if not found_files:
                 show_notification(f"❌ No UV map files found for '{carid}'", "error", 4000)
-                print(f"UV Map search failed: No UV files found in {zip_file_path}")
+                print(f"[DEBUG] UV Map search failed: No UV files found in {zip_file_path}")
                 # Show files that contain "skin" or "uvmap" for debugging
                 skin_files = [f for f in all_files if f.startswith(target_dir) and "skin" in os.path.basename(f).lower()]
                 uvmap_files = [f for f in all_files if f.startswith(target_dir) and "uvmap" in os.path.basename(f).lower()]
                 uv_files = [f for f in all_files if f.startswith(target_dir) and "uv" in os.path.basename(f).lower()]
-                print(f"Files with 'skin' in name: {skin_files[:10]}")  # Show first 10
-                print(f"Files with 'uvmap' in name: {uvmap_files}")
-                print(f"Files with 'uv' in name: {uv_files[:10]}")
+                print(f"[DEBUG] Files with 'skin' in name: {skin_files[:10]}")  # Show first 10
+                print(f"[DEBUG] Files with 'uvmap' in name: {uvmap_files}")
+                print(f"[DEBUG] Files with 'uv' in name: {uv_files[:10]}")
                 return
             
             # If multiple files found, let user choose
@@ -3609,10 +3655,10 @@ def get_uv_map(carid):
             if len(found_files) == 1:
                 selected_files = [found_files[0]]
                 file_path, source_zip = found_files[0]
-                print(f"UV Map found in ZIP: {file_path} (from {os.path.basename(source_zip)})")
+                print(f"[DEBUG] UV Map found in ZIP: {file_path} (from {os.path.basename(source_zip)})")
             else:
                 # Create selection dialog
-                print(f"Multiple UV maps found ({len(found_files)}): {[(os.path.basename(f), os.path.basename(z)) for f, z in found_files]}")
+                print(f"[DEBUG] Multiple UV maps found ({len(found_files)}): {[(os.path.basename(f), os.path.basename(z)) for f, z in found_files]}")
                 
                 # Create a custom dialog window
                 dialog = ctk.CTkToplevel(app)
@@ -3729,10 +3775,10 @@ def get_uv_map(carid):
                 app.wait_window(dialog)
                 
                 if not selected_files:
-                    print("User cancelled UV map selection")
+                    print("[DEBUG] User cancelled UV map selection")
                     return
             
-            print(f"Selected UV Map(s): {[(os.path.basename(f), os.path.basename(z)) for f, z in selected_files]}")
+            print(f"[DEBUG] Selected UV Map(s): {[(os.path.basename(f), os.path.basename(z)) for f, z in selected_files]}")
             
             # Ask user where to save the file(s)
             if len(selected_files) == 1:
@@ -3758,7 +3804,7 @@ def get_uv_map(carid):
                                 target.write(source.read())
                     
                     show_notification(f"✓ UV map copied successfully!", "success", 3000)
-                    print(f"UV Map extracted from {source_zip} to {destination}")
+                    print(f"[DEBUG] UV Map extracted from {source_zip} to {destination}")
             else:
                 # Multiple files - use directory dialog
                 destination_folder = filedialog.askdirectory(
@@ -3778,19 +3824,19 @@ def get_uv_map(carid):
                                     with open(destination, 'wb') as target:
                                         target.write(source.read())
                             success_count += 1
-                            print(f"UV Map extracted: {filename} from {os.path.basename(source_zip)} to {destination}")
+                            print(f"[DEBUG] UV Map extracted: {filename} from {os.path.basename(source_zip)} to {destination}")
                         except Exception as e:
-                            print(f"Failed to extract {filename}: {e}")
+                            print(f"[DEBUG] Failed to extract {filename}: {e}")
                     
                     show_notification(f"✓ {success_count} UV map(s) copied successfully!", "success", 3000)
-                    print(f"{success_count}/{len(selected_files)} UV maps extracted to {destination_folder}")
+                    print(f"[DEBUG] {success_count}/{len(selected_files)} UV maps extracted to {destination_folder}")
                 
     except zipfile.BadZipFile:
         show_notification(f"❌ Invalid ZIP file: {carid}.zip", "error", 4000)
-        print(f"Error: {zip_file_path} is not a valid ZIP file")
+        print(f"[DEBUG] Error: {zip_file_path} is not a valid ZIP file")
     except Exception as e:
         show_notification(f"❌ Failed to extract UV map: {str(e)}", "error", 4000)
-        print(f"Error extracting UV map: {e}")
+        print(f"[DEBUG] Error extracting UV map: {e}")
         import traceback
         traceback.print_exc()
 
@@ -3924,7 +3970,7 @@ debug_mode_frame = ctk.CTkFrame(settings_tab, fg_color="transparent")
 def toggle_developer_mode():
     global developer_tab
     if developer_mode_var.get():
-        print("Developer mode enabled")
+        print("[DEBUG] Developer mode enabled")
         # Create developer tab if it doesn't exist
         if developer_tab is None:
             developer_tab = ctk.CTkFrame(main_container, fg_color=colors["app_bg"])
@@ -3946,7 +3992,7 @@ def toggle_developer_mode():
             menu_buttons["developer"] = developer_btn
         debug_mode_frame.pack(anchor="w", padx=10, pady=(0,10))
     else:
-        print("Developer mode disabled")
+        print("[DEBUG] Developer mode disabled")
         # Remove developer tab
         if developer_tab is not None:
             developer_tab.pack_forget()
@@ -4077,7 +4123,7 @@ def setup_developer_tab():
         path = filedialog.askopenfilename(title="Select JSON File", filetypes=[("JSON Files", "*.json")])
         if path:
             json_path_var.set(path)
-            print(f"JSON file selected: {path}")
+            print(f"[DEBUG] JSON file selected: {path}")
     
     json_browse_btn = ctk.CTkButton(input_frame, text="Browse", width=80, command=select_json_file,
                                     fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"])
@@ -4092,7 +4138,7 @@ def setup_developer_tab():
         path = filedialog.askopenfilename(title="Select JBEAM File", filetypes=[("JBEAM Files", "*.jbeam")])
         if path:
             jbeam_path_var.set(path)
-            print(f"JBEAM file selected: {path}")
+            print(f"[DEBUG] JBEAM file selected: {path}")
     
     jbeam_browse_btn = ctk.CTkButton(input_frame, text="Browse", width=80, command=select_jbeam_file,
                                      fg_color=colors["card_bg"], hover_color=colors["card_hover"], text_color=colors["text"])
@@ -4113,7 +4159,7 @@ def setup_developer_tab():
             # Validate it's a JPG file
             if path.lower().endswith(('.jpg', '.jpeg')):
                 image_path_var.set(path)
-                print(f"Preview image selected: {path}")
+                print(f"[DEBUG] Preview image selected: {path}")
             else:
                 show_notification("Please select a JPG/JPEG image file", "error")
     
@@ -4139,37 +4185,37 @@ def setup_developer_tab():
         jbeam_path = jbeam_path_var.get().strip()
         image_path = image_path_var.get().strip()
 
-        print(f"\nAttempting to add vehicle: {carname} (ID: {carid})")
+        print(f"[DEBUG] \nAttempting to add vehicle: {carname} (ID: {carid})")
 
         if not carid or not carname:
-            print("ERROR: Car ID or Car Name is empty")
+            print("[DEBUG] ERROR: Car ID or Car Name is empty")
             show_notification("Car ID and Car Name cannot be empty", "error")
             return
 
         if " " in carid:
-            print("ERROR: Car ID contains spaces")
+            print("[DEBUG] ERROR: Car ID contains spaces")
             show_notification("Car ID cannot contain spaces", "error")
             return
 
         if not json_path:
-            print("ERROR: No JSON file selected")
+            print("[DEBUG] ERROR: No JSON file selected")
             show_notification("Please select a JSON file", "error")
             return
 
         # JBEAM is now optional
         if jbeam_path:
-            print("JBEAM file will be processed")
+            print("[DEBUG] JBEAM file will be processed")
         else:
-            print("No JBEAM file selected - skipping JBEAM processing")
+            print("[DEBUG] No JBEAM file selected - skipping JBEAM processing")
         
         # Preview image is optional
         if image_path:
-            print(f"Preview image will be copied: {image_path}")
+            print(f"[DEBUG] Preview image will be copied: {image_path}")
         else:
-            print("No preview image selected - skipping image copy")
+            print("[DEBUG] No preview image selected - skipping image copy")
 
         if carid in [v[0] for v in car_id_list] or carid in added_vehicles:
-            print(f"ERROR: Car ID '{carid}' already exists")
+            print(f"[DEBUG] ERROR: Car ID '{carid}' already exists")
             show_notification(f"Car ID '{carid}' already exists", "error")
             return
 
@@ -4190,31 +4236,31 @@ def setup_developer_tab():
             update_progress(0.1, "Saving vehicle information...")
             added_vehicles[carid] = carname
             save_added_vehicles()
-            print(f"Vehicle saved to added_vehicles.json")
+            print(f"[DEBUG] Vehicle saved to added_vehicles.json")
 
             update_progress(0.2, "Creating vehicle folders...")
             create_vehicle_folders(carid)
-            print(f"Created vehicle folders for {carid}")
+            print(f"[DEBUG] Created vehicle folders for {carid}")
 
             skinname_folder = os.path.join(VEHICLE_FOLDER, carid, "SKINNAME")
             
             # Edit and copy the JSON file (using 'skinname' as placeholder)
             update_progress(0.3, "Processing JSON file...")
-            print(f"\n--- Processing JSON file ---")
+            print(f"[DEBUG] \n--- Processing JSON file ---")
             edit_material_json(json_path, skinname_folder, carid)
             
             if jbeam_path:
                 # Edit and copy the JBEAM file (using 'skinname' as placeholder)
                 update_progress(0.6, "Processing JBEAM file...")
-                print(f"\n--- Processing JBEAM file ---")
+                print(f"[DEBUG] \n--- Processing JBEAM file ---")
                 edit_jbeam_material(jbeam_path, skinname_folder, carid)
                 
                 # Check if JBEAM was actually saved (with original filename)
                 jbeam_filename = os.path.basename(jbeam_path)
                 jbeam_output = os.path.join(skinname_folder, jbeam_filename)
                 if not os.path.exists(jbeam_output):
-                    print(f"\nWARNING: JBEAM file was not created!")
-                    print(f"Expected location: {jbeam_output}")
+                    print(f"[DEBUG] \nWARNING: JBEAM file was not created!")
+                    print(f"[DEBUG] Expected location: {jbeam_output}")
                     raise Exception(
                         "Failed to process JBEAM file.\n\n"
                         "Please make sure the selected JBEAM file is valid."
@@ -4223,7 +4269,7 @@ def setup_developer_tab():
             # Copy preview image if provided
             if image_path:
                 update_progress(0.7, "Copying preview image...")
-                print(f"\n--- Copying preview image ---")
+                print(f"[DEBUG] \n--- Copying preview image ---")
                 
                 # Create image folder structure: imagesforgui/vehicles/{carid}/
                 image_folder = os.path.join("imagesforgui", "vehicles", carid)
@@ -4234,7 +4280,7 @@ def setup_developer_tab():
                 dest_path = os.path.join(image_folder, "default.jpg")
                 img_shutil.copy2(image_path, dest_path)
                 
-                print(f"Preview image copied to: {dest_path}")
+                print(f"[DEBUG] Preview image copied to: {dest_path}")
             
             update_progress(0.8, "Updating vehicle lists...")
             car_id_list.append((carid, carname))
@@ -4249,7 +4295,7 @@ def setup_developer_tab():
             image_path_var.set("")
             
             update_progress(1.0, "Vehicle added successfully!")
-            print(f"Vehicle '{carname}' added successfully!\n")
+            print(f"[DEBUG] Vehicle '{carname}' added successfully!\n")
             
             # Hide progress UI after a short delay
             app.after(2000, lambda: dev_progress_bar.pack_forget())
@@ -4259,7 +4305,7 @@ def setup_developer_tab():
             refresh_developer_list()
             
         except Exception as e:
-            print(f"ERROR processing files: {e}")
+            print(f"[DEBUG] ERROR processing files: {e}")
             dev_status_label.configure(text="Error: Failed to add vehicle")
             show_notification(f"Failed to add vehicle: {str(e)}", "error", 5000)
             delete_vehicle_folders(carid)
@@ -4306,13 +4352,13 @@ def setup_developer_tab():
     dev_list_items = []
 
     def delete_vehicle(carid):
-        print(f"\nDeleting vehicle: {carid}")
+        print(f"[DEBUG] \nDeleting vehicle: {carid}")
         if carid in added_vehicles:
             del added_vehicles[carid]
             save_added_vehicles()
 
             delete_vehicle_folders(carid)
-            print(f"Deleted vehicle folders for {carid}")
+            print(f"[DEBUG] Deleted vehicle folders for {carid}")
 
             # Remove from car_id_list
             for i, item in enumerate(car_id_list):
@@ -4334,7 +4380,7 @@ def setup_developer_tab():
                     sidebar_vehicle_buttons.pop(i)
                     break
 
-            print(f"Vehicle '{carid}' deleted successfully\n")
+            print(f"[DEBUG] Vehicle '{carid}' deleted successfully\n")
             show_notification(f"✓ Vehicle '{carid}' deleted successfully!", "success", 3000)
             refresh_developer_list()
 
@@ -4424,7 +4470,7 @@ def setup_developer_tab():
 # ===========================
 # POPULATE SIDEBAR WITH VEHICLES (Mods Studio 2 Tree)
 # ===========================
-print("Populating sidebar with vehicles...")
+print("[DEBUG] Populating sidebar with vehicles...")
 
 # ===========================
 # POPULATE SIDEBAR WITH EXPANDABLE VEHICLE BUTTONS
@@ -4621,7 +4667,7 @@ def add_vehicle_button(carid, display_name=None):
     for container, cid, dname, add_frame in sidebar_vehicle_buttons:
         container.pack(fill="x", pady=2, padx=0)
 
-print("Populating sidebar with expandable vehicles...")
+print("[DEBUG] Populating sidebar with expandable vehicles...")
 
 # Add all default vehicles to sidebar with expandable add buttons
 for carid in sorted(VEHICLE_IDS.keys(), key=lambda c: VEHICLE_IDS[c].lower()):
@@ -4672,7 +4718,7 @@ for carid in sorted(VEHICLE_IDS.keys(), key=lambda c: VEHICLE_IDS[c].lower()):
     container_frame.pack(fill="x", pady=2, padx=0)
 
 
-print(f"Added {len(sidebar_vehicle_buttons)} expandable vehicles to sidebar")
+print(f"[DEBUG] Added {len(sidebar_vehicle_buttons)} expandable vehicles to sidebar")
 
 # Add user-added vehicles
 for carid, carname in added_vehicles.items():
@@ -4682,7 +4728,7 @@ for carid, carname in added_vehicles.items():
     car_id_list.append((carid, carname))
 
 def on_closing():
-    print("\nShutting down BeamSkin Studio...")
+    print("[DEBUG] \nShutting down BeamSkin Studio...")
     app.destroy()
 app.protocol("WM_DELETE_WINDOW", on_closing)
 
