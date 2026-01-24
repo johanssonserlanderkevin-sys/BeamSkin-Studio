@@ -5,7 +5,7 @@
 1. **Download the repository**
 
 2. Run the file Install.bat file
-- if anythyng is missing from the requirments it download that for you
+- if anythyng is missing to run the program it will download that for you
 
 3. now everything is installed
 - u can now use the BeamSkin Studio.bat to launch the program
