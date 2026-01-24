@@ -1,0 +1,13 @@
+{
+"miramar_skin_skinname": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name",
+        "value":400
+    },
+    //This car has its skin slot defined in body jbeam, which is why below you have a selection of slotTypes that this skin os compatible with.
+    "slotType" : ["skin_miramar_sedan","skin_miramar_coupe","skin_miramar_ute"],
+    "skinType" : "paint_design",
+    "globalSkin" : "skinname"
+},
+}

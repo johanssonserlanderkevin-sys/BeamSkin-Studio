@@ -1,0 +1,20 @@
+{
+"us_semi_cargobox_skin_skinname": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Skin Name",
+        "value":2200
+    },
+    "slotType" : "skin_us_semi_cargobox",
+    "skinName" : "skinname"
+},
+"us_semi_skin_skinname": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Skin Name",
+        "value":0,
+    },
+    "slotType" : "paint_design",
+    "globalSkin" : "skinname",
+},
+}

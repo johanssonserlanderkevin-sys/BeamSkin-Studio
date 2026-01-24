@@ -1,0 +1,11 @@
+ {
+   "rockbouncer_skin_skinname": {			
+   "information":{
+       "authors":"YOU",					
+       "name":"YOUR SKIN NAME",			
+       "value":200,
+   }
+   "slotType" : "paint_design",
+   "globalSkin" : "skinname",
+   },
+   }

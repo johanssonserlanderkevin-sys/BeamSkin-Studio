@@ -1,0 +1,36 @@
+{
+  "rockbouncer_main.skin.skinname": {
+    "name": "rockbouncer_main.skin.skinname",
+    "mapTo": "rockbouncer_main.skin.skinname",
+    "class": "Material",
+    "persistentId": "8b9862de-3ff8-4d88-a908-ce3c867baf8a",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/rockbouncer/rockbouncer_main_ao.data.png",
+        "baseColorMap": "/vehicles/rockbouncer/rockbouncer_main_b.color.png",
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/rockbouncer/rockbouncer_main_m.data.png",
+        "normalMap": "vehicles/rockbouncer/rockbouncer_main_nm.normal.png",
+        "roughnessMap": "/vehicles/rockbouncer/rockbouncer_main_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/rockbouncer/rockbouncer_main_ao.data.png",
+        "baseColorMap": "/vehicles/rockbouncer/skinname/rockbouncer_skin_skinname.dds",
+        "clearCoatFactor": 0.180000007,
+        "clearCoatMap": "/vehicles/rockbouncer/rockbouncer_main_cc.data.png",
+        "colorPaletteMap": "/vehicles/rockbouncer/rockbouncer_main_mask.color.png",
+        "diffuseMapUseUV": 1,
+        "normalMap": "/vehicles/rockbouncer/rockbouncer_main_nm.normal.png",
+        "opacityMap": "/vehicles/rockbouncer/rockbouncer_main_c.data.png",
+        "roughnessFactor": 0
+      },
+      {},
+      {}
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+}

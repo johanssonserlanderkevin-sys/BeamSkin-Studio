@@ -1,0 +1,11 @@
+{
+  "armored_skin_skinnamearmor": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name (Armored Truck)",
+        "value":3900
+    },
+    "slotType" : "skin_armored",
+    "globalSkin" : "skinnamearmor"
+  },
+}

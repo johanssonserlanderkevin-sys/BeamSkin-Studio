@@ -1,0 +1,20 @@
+{
+"md_series_skin_skinnamebox": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name (Cargo Box)",
+        "value":0
+    },
+    "slotType" : "paint_design",
+    "globalSkin" : "skinnamebox"
+  },
+"md_series_cargobox_skin_skinnamebox": {
+    "information":{
+        "authors":"Your Name Here",
+        "name":"Your Skin Name (Cargo Box)",
+        "value":2200
+    },
+    "slotType" : "skin_md_series_cargobox",
+    "skinName" : "skinnamebox"
+},
+}

@@ -1,0 +1,128 @@
+{
+  "dryvan.skin.skinname": {
+    "name": "dryvan.skin.skinname",
+    "mapTo": "dryvan.skin.skinname",
+    "class": "material",
+    "persistentId": "7afd3097-41c9-421d-ab87-318c01141bfd",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "vehicles/dryvan/dryvan_ao.data.png",
+        "baseColorMap": "vehicles/dryvan/dryvan_b.color.png",
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "vehicles/dryvan/dryvan_m.data.png",
+        "normalMap": "vehicles/dryvan/dryvan_nm.normal.png",
+        "roughnessFactor": null,
+        "roughnessMap": "vehicles/dryvan/dryvan_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/dryvan/dryvan_ao.data.png",
+        "baseColorMap": "/vehicles/dryvan/skinname/dryvan_skin_skinname.dds",
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0.800000012,
+        "normalMap": "vehicles/dryvan/dryvan_nm.normal.png",
+        "opacityMap": "vehicles/dryvan/dryvan_c.data.png",
+        "roughnessFactor": 0.600000024
+      },
+      {
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      },
+      {
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+  "dryvan_28ft.skin.skinname": {
+    "name": "dryvan_28ft.skin.skinname",
+    "mapTo": "dryvan_28ft.skin.skinname",
+    "class": "Material",
+    "persistentId": "",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "vehicles/dryvan/dryvan_ao.data.png",
+        "baseColorMap": "vehicles/dryvan/dryvan_b.color.png",
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "vehicles/dryvan/dryvan_m.data.png",
+        "normalMap": "vehicles/dryvan/dryvan_nm.normal.png",
+        "roughnessFactor": null,
+        "roughnessMap": "vehicles/dryvan/dryvan_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/dryvan/dryvan_ao.data.png",
+        "baseColorMap": "/vehicles/dryvan/skinname/dryvan_skin_skinnamepup.dds",
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0.800000012,
+        "normalMap": "vehicles/dryvan/dryvan_nm.normal.png",
+        "opacityMap": "vehicles/dryvan/dryvan_c.data.png",
+        "roughnessFactor": 0.600000024
+      },
+      {
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      },
+      {
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+  "dryvan_ramp.skin.skinname": {
+    "name": "dryvan_ramp.skin.skinname",
+    "mapTo": "dryvan_ramp.skin.skinname",
+    "class": "Material",
+    "persistentId": "5f422a6b-3175-4253-b2a2-a7000e1177c7",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "vehicles/dryvan/dryvan_ramp_ao.data.png",
+        "baseColorMap": "vehicles/dryvan/dryvan_ramp_b.color.png",
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "vehicles/dryvan/dryvan_ramp_m.data.png",
+        "normalMap": "vehicles/dryvan/dryvan_ramp_nm.normal.png",
+        "roughnessFactor": null,
+        "roughnessMap": "vehicles/dryvan/dryvan_ramp_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/dryvan/dryvan_ramp_ao.data.png",
+        "baseColorMap": "/vehicles/dryvan/skinname/dryvan_skin_skinname.dds",
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0.800000012,
+        "normalMap": "vehicles/dryvan/dryvan_ramp_nm.normal.png",
+        "opacityMap": "vehicles/dryvan/dryvan_ramp_c.data.png",
+        "roughnessFactor": 0.600000024
+      },
+      {
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      },
+      {
+        "diffuseMapUseUV": null,
+        "metallicFactor": null,
+        "roughnessFactor": null
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+}

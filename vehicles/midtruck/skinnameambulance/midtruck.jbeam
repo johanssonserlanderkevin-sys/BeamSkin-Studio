@@ -1,0 +1,11 @@
+{
+"midtruck_skin_skinnameambulance": {
+    "information":{
+        "authors":"Your Name",
+        "name":"Your Skin Name (Ambulance)",
+        "value":100,
+    }
+    "slotType" : "paint_design",
+    "globalSkin" : "skinnameambulance",
+},
+}

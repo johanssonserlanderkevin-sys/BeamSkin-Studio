@@ -1,0 +1,166 @@
+{
+  "md_series_main.skin.skinnameambulance": {
+    "name": "md_series_main.skin.skinnameambulance",
+    "mapTo": "md_series_main.skin.skinnameambulance",
+    "class": "Material",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/md_series/md_series_main_ao.data.png",
+        "baseColorMap": "/vehicles/md_series/md_series_main_b.color.png",
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/md_series/md_series_main_m.data.png",
+        "normalMap": "/vehicles/md_series/md_series_main_nm.normal.png",
+        "roughnessMap": "/vehicles/md_series/md_series_main_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/md_series/md_series_main_ao.data.png",
+        "baseColorMap": "/vehicles/md_series/skinnameambulance/md_series_skin_skinnameambulance.dds",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/md_series/md_series_main_cc.data.png",
+        "clearCoatRoughnessFactor": 0.0500000007,
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0.5,
+        "normalMap": "/vehicles/md_series/md_series_main_nm.normal.png",
+        "opacityMap": "/vehicles/md_series/md_series_main_c.data.png"
+      },
+      {
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": null
+      },
+      {
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": null
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+  "md_series_main_alt.skin.skinnameambulance": {
+    "name": "md_series_main_alt.skin.skinnameambulance",
+    "mapTo": "md_series_main_alt.skin.skinnameambulance",
+    "class": "Material",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/md_series/md_series_main_ao.data.png",
+        "baseColorMap": "/vehicles/md_series/md_series_main_alt_b.color.png",
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/md_series/md_series_main_alt_m.data.png",
+        "normalMap": "vehicles/md_series/md_series_main_nm.normal.png",
+        "roughnessMap": "/vehicles/md_series/md_series_main_alt_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/md_series/md_series_main_ao.data.png",
+        "baseColorMap": "/vehicles/md_series/skinnameambulance/md_series_skin_skinnameambulance.dds",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/md_series/md_series_main_alt_cc.data.png",
+        "clearCoatRoughnessFactor": 0.0500000007,
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0.5,
+        "normalMap": "/vehicles/md_series/md_series_main_nm.normal.png",
+        "opacityMap": "/vehicles/md_series/md_series_main_alt_c.data.png"
+      },
+      {
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": null
+      },
+      {
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": null
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+  "pickup.skin.skinnameambulance": {
+    "name": "pickup.skin.skinnameambulance",
+    "mapTo": "pickup.skin.skinnameambulance",
+    "class": "Material",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/common/pickup/pickup_main_ao.data.png",
+        "baseColorMap": "/vehicles/common/pickup/pickup_main_b.color.png",
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/common/pickup/pickup_main_m.data.png",
+        "normalMap": "vehicles/common/pickup/pickup_n.dds",
+        "roughnessMap": "/vehicles/common/pickup/pickup_main_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/common/pickup/pickup_main_ao.data.png",
+        "baseColorMap": "/vehicles/md_series/skinnameambulance/md_series_skin_skinnameambulance.dds",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/common/pickup/pickup_main_cc.data.png",
+        "clearCoatRoughnessFactor": 0.05,
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 0.5,
+        "normalMap": "/vehicles/common/pickup/pickup_n.dds",
+        "opacityMap": "/vehicles/pickup/pickup_skin_o.data.png",
+        "useAnisotropic": true
+      },
+      {},
+      {}
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "order_simset": 1052095917,
+    "version": 1.5
+  },
+    "ambulance.skin.skinnameambulance" : {
+    "name" : "ambulance.skin.skinnameambulance",
+    "mapTo" : "ambulance.skin.skinnameambulance",
+    "class" : "Material",
+    "persistentId" : "38c3bd1a-65b9-4d23-86d5-1689115b78e9",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/common/pickup/ambulance/ambulance_main_ao.data.png",
+        "baseColorMap": "/vehicles/common/pickup/ambulance/ambulance_main_b.color.png",
+        "metallicMap": "/vehicles/common/pickup/ambulance/ambulance_main_m.data.png",
+        "metallicFactor": 1,
+        "roughnessFactor": 1,
+        "normalMap": "vehicles/common/pickup/ambulance/ambulance_n.dds",
+        "roughnessMap": "/vehicles/common/pickup/ambulance/ambulance_main_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/common/pickup/ambulance/ambulance_main_ao.data.png",
+        "useAnisotropic": true,
+        "diffuseMapUseUV": 1,
+        "clearCoatFactor": 1,
+        "clearCoatRoughnessFactor":0.1,
+        "metallicFactor": 0.5,
+        "clearCoatMap": "/vehicles/common/pickup/ambulance/ambulance_main_cc.data.png",
+        "normalMap": "/vehicles/common/pickup/ambulance/ambulance_n.dds",
+        "opacityMap": "/vehicles/common/pickup/ambulance/ambulance_main_c.data.png",
+        "baseColorMap": "vehicles/md_series/skinnameambulance/ambulance_skin_skinnameambulance.dds",
+      },
+      {},
+      {}
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "order_simset": 0,
+    "version": 1.5
+  },
+}

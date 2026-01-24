@@ -1,0 +1,13 @@
+{
+"nine_skin_SKINNAME": {
+    "information":{
+        "authors":"Top Tier Studios",
+        "name":"Your Skin Name",
+        "value":0,
+    },
+    //This car has its skin slot defined in body jbeam, which is why below you have a selection of slotTypes that this skin os compatible with.
+    "slotType" : ["skin_nine_roadster","skin_nine_coupe","skin_nine_sedan","skin_nine_van","skin_nine_panelvan","skin_nine_pickup"],
+    "skinType" : "skin_body",
+    "skinName" : "SKINNAME",
+  },
+}

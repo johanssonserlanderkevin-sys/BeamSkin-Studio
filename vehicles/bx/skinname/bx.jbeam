@@ -1,0 +1,11 @@
+ {
+   "bx_skin_wave": {				
+   "information":{
+       "authors":"spec",					
+       "name":"Kanagawa wave hood",			
+       "value":200,
+   }
+   "slotType" : "paint_design",
+   "globalSkin" : "wave",			
+   },
+   }
