@@ -1,8 +1,10 @@
 """
 BeamSkin Studio - Quick Launcher (No Checks)
 Shows loading GUI and launches main.py, closes only when main app is ready
+UPDATED: Uses logo image from gui/Icons folder
 """
 import customtkinter as ctk
+from PIL import Image
 import subprocess
 import sys
 import time
@@ -23,7 +25,7 @@ class QuickLauncher:
     def __init__(self):
         self.app = ctk.CTk()
         self.app.title("BeamSkin Studio")
-        self.app.geometry("600x400")
+        self.app.geometry("600x450")  # Slightly taller to accommodate logo
         self.app.resizable(False, False)
         self.app.configure(fg_color=COLORS["bg"])
         
@@ -32,6 +34,9 @@ class QuickLauncher:
         
         # Remove window decorations for cleaner look
         self.app.overrideredirect(True)
+        
+        # Load logo
+        self.logo_image = self._load_logo()
         
         # Center window
         self.center_window()
@@ -42,13 +47,40 @@ class QuickLauncher:
         # Lift window to front
         self.app.lift()
         self.app.focus_force()
+    
+    def _load_logo(self):
+        """Load the BeamSkin Studio logo"""
+        # Get parent directory (go up from launchers-scripts to root)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        
+        # Try to load white logo (for dark background)
+        logo_path = os.path.join(parent_dir, "gui", "Icons", "BeamSkin_Studio_White.png")
+        
+        try:
+            if os.path.exists(logo_path):
+                pil_image = Image.open(logo_path)
+                # Logo size - adjust as needed
+                logo_image = ctk.CTkImage(
+                    light_image=pil_image,
+                    dark_image=pil_image,
+                    size=(200, 200)  # Adjust size here
+                )
+                print(f"[DEBUG] Loaded logo from: {logo_path}")
+                return logo_image
+            else:
+                print(f"[DEBUG] Logo not found at: {logo_path}")
+                return None
+        except Exception as e:
+            print(f"[DEBUG] Failed to load logo: {e}")
+            return None
         
     def center_window(self):
         """Center the window on screen"""
         self.app.update_idletasks()
         x = (self.app.winfo_screenwidth() // 2) - (600 // 2)
-        y = (self.app.winfo_screenheight() // 2) - (400 // 2)
-        self.app.geometry(f"600x400+{x}+{y}")
+        y = (self.app.winfo_screenheight() // 2) - (450 // 2)
+        self.app.geometry(f"600x450+{x}+{y}")
     
     def create_ui(self):
         """Create the launcher UI"""
@@ -69,19 +101,20 @@ class QuickLauncher:
         header_frame.pack(expand=True)
         
         # Logo/Icon
-        ctk.CTkLabel(
-            header_frame,
-            text="🎨",
-            font=ctk.CTkFont(size=72)
-        ).pack(pady=(0, 15))
-        
-        # Title
-        ctk.CTkLabel(
-            header_frame,
-            text="BeamSkin Studio",
-            font=ctk.CTkFont(size=32, weight="bold"),
-            text_color=COLORS["accent"]
-        ).pack(pady=(0, 5))
+        if self.logo_image:
+            # Use logo image
+            ctk.CTkLabel(
+                header_frame,
+                text="",
+                image=self.logo_image
+            ).pack(pady=(0, 20))
+        else:
+            # Fallback to emoji if logo not found
+            ctk.CTkLabel(
+                header_frame,
+                text="🎨",
+                font=ctk.CTkFont(size=72)
+            ).pack(pady=(0, 15))
         
         # Subtitle
         ctk.CTkLabel(
@@ -149,7 +182,7 @@ class QuickLauncher:
                 cwd=parent_dir  # Set working directory to parent
             )
         
-        # Wait longer for main app window to appear (5 seconds)
+        # Wait longer for main app window to appear
         time.sleep(2.2)
         
         # Close launcher

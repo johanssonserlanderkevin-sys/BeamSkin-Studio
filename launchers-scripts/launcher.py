@@ -2,8 +2,10 @@
 BeamSkin Studio - Modern GUI Launcher
 Replaces batch files with a sleek GUI that handles Python installation,
 dependency management, and application startup.
+UPDATED: Uses logo image from gui/Icons folder
 """
 import customtkinter as ctk
+from PIL import Image
 import subprocess
 import sys
 import os
@@ -31,12 +33,15 @@ class LauncherWindow:
     def __init__(self):
         self.app = ctk.CTk()
         self.app.title("BeamSkin Studio - Launcher")
-        self.app.geometry("700x550")
+        self.app.geometry("700x600")  # Slightly taller for logo
         self.app.resizable(False, False)
         self.app.configure(fg_color=COLORS["bg"])
         
         # Keep window on top of all others
         self.app.attributes('-topmost', True)
+        
+        # Load logo
+        self.logo_image = self._load_logo()
         
         # Center window
         self.center_window()
@@ -47,13 +52,40 @@ class LauncherWindow:
         # Lift window to front
         self.app.lift()
         self.app.focus_force()
+    
+    def _load_logo(self):
+        """Load the BeamSkin Studio logo"""
+        # Get parent directory (go up from launchers-scripts to root)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        
+        # Try to load white logo (for dark background)
+        logo_path = os.path.join(parent_dir, "gui", "Icons", "BeamSkin_Studio_White.png")
+        
+        try:
+            if os.path.exists(logo_path):
+                pil_image = Image.open(logo_path)
+                # Logo size - adjust as needed
+                logo_image = ctk.CTkImage(
+                    light_image=pil_image,
+                    dark_image=pil_image,
+                    size=(200, 200)  # Adjust size here
+                )
+                print(f"[DEBUG] Loaded logo from: {logo_path}")
+                return logo_image
+            else:
+                print(f"[DEBUG] Logo not found at: {logo_path}")
+                return None
+        except Exception as e:
+            print(f"[DEBUG] Failed to load logo: {e}")
+            return None
         
     def center_window(self):
         """Center the window on screen"""
         self.app.update_idletasks()
         x = (self.app.winfo_screenwidth() // 2) - (700 // 2)
-        y = (self.app.winfo_screenheight() // 2) - (550 // 2)
-        self.app.geometry(f"700x550+{x}+{y}")
+        y = (self.app.winfo_screenheight() // 2) - (600 // 2)
+        self.app.geometry(f"700x600+{x}+{y}")
     
     def create_ui(self):
         """Create the launcher UI"""
@@ -65,18 +97,21 @@ class LauncherWindow:
         header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         header_frame.pack(pady=(0, 20))
         
-        ctk.CTkLabel(
-            header_frame,
-            text="🎨",
-            font=ctk.CTkFont(size=56)
-        ).pack()
-        
-        ctk.CTkLabel(
-            header_frame,
-            text="BeamSkin Studio",
-            font=ctk.CTkFont(size=28, weight="bold"),
-            text_color=COLORS["accent"]
-        ).pack(pady=(10, 5))
+        # Logo/Icon
+        if self.logo_image:
+            # Use logo image
+            ctk.CTkLabel(
+                header_frame,
+                text="",
+                image=self.logo_image
+            ).pack(pady=(0, 15))
+        else:
+            # Fallback to emoji if logo not found
+            ctk.CTkLabel(
+                header_frame,
+                text="🎨",
+                font=ctk.CTkFont(size=56)
+            ).pack()
         
         ctk.CTkLabel(
             header_frame,
@@ -262,10 +297,104 @@ class SetupManager:
         except FileNotFoundError:
             return False, None
     
-    def open_python_download(self):
-        """Open Python download page in browser"""
+    def download_python_installer(self):
+        """Download Python installer for Windows"""
         import webbrowser
-        webbrowser.open("https://www.python.org/downloads/")
+        
+        # Python 3.11.9 (stable, widely compatible)
+        python_url = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
+        
+        self.launcher.update_status(
+            "📥",
+            "Downloading Python installer...",
+            "This may take a few minutes",
+            0.2
+        )
+        
+        try:
+            # Download to Downloads folder
+            import os
+            downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+            installer_path = os.path.join(downloads_folder, "python-3.11.9-amd64.exe")
+            
+            # Download with progress tracking
+            def download_progress(block_num, block_size, total_size):
+                downloaded = block_num * block_size
+                if total_size > 0:
+                    progress = min(downloaded / total_size, 1.0)
+                    self.launcher.progress_bar.set(0.2 + (progress * 0.6))  # 20-80%
+                    self.launcher.app.update()
+            
+            urllib.request.urlretrieve(python_url, installer_path, download_progress)
+            
+            self.launcher.update_status(
+                "✅",
+                "Python installer downloaded!",
+                "Starting installation...",
+                0.9
+            )
+            
+            time.sleep(0.5)
+            
+            # Run the installer automatically with silent flags
+            self.launcher.update_status(
+                "🔧",
+                "Installing Python...",
+                "This will take a few minutes\nPlease wait...",
+                0.95
+            )
+            
+            try:
+                # Run Python installer with automatic flags
+                # /passive = shows progress but no user interaction
+                # PrependPath=1 = adds Python to PATH automatically
+                # Include_pip=1 = installs pip
+                result = subprocess.run(
+                    [installer_path, "/passive", "PrependPath=1", "Include_pip=1"],
+                    check=False
+                )
+                
+                if result.returncode == 0:
+                    self.launcher.show_success(
+                        "Python Installed Successfully!",
+                        "Please restart this launcher to continue"
+                    )
+                    
+                    # Show restart button
+                    self.launcher.action_button.configure(
+                        text="Restart Launcher",
+                        command=lambda: [self.launcher.app.quit(), os.execl(sys.executable, sys.executable, *sys.argv)],
+                        fg_color=COLORS["accent"],
+                        hover_color=COLORS["accent_hover"]
+                    )
+                    self.launcher.action_button.pack(pady=10)
+                else:
+                    # Installation failed or cancelled
+                    self.launcher.show_error(
+                        "Installation Issue",
+                        "Python installation may have been cancelled or failed.\n"
+                        "Please run the installer manually from Downloads folder.",
+                        "Open Downloads",
+                        lambda: [os.startfile(downloads_folder) if sys.platform == 'win32' else None, self.launcher.app.quit()]
+                    )
+                    
+            except Exception as e:
+                self.launcher.show_error(
+                    "Installation Error",
+                    f"Error running installer: {str(e)}\n\n"
+                    f"Installer saved to:\n{installer_path}",
+                    "Open Downloads",
+                    lambda: [os.startfile(downloads_folder) if sys.platform == 'win32' else None, self.launcher.app.quit()]
+                )
+            
+        except Exception as e:
+            # Fallback to browser if download fails
+            self.launcher.show_error(
+                "Download Failed",
+                f"Error: {str(e)}\n\nOpening download page in browser instead...",
+                "Open Browser",
+                lambda: [webbrowser.open("https://www.python.org/downloads/"), self.launcher.app.quit()]
+            )
     
     def install_packages(self):
         """Install required Python packages"""
@@ -368,24 +497,17 @@ def main():
             python_installed, version = setup.check_python()
             
             if not python_installed:
-                # Ask user to install Python manually
-                def open_python_site():
-                    import webbrowser
-                    webbrowser.open("https://www.python.org/downloads/")
-                    launcher.show_error(
-                        "Please Install Python",
-                        "Download Python from the opened webpage\nMake sure to check 'Add Python to PATH' during installation\nThen restart this launcher",
-                        "Close",
-                        launcher.app.quit
-                    )
+                # Download and install Python for user
+                def download_and_install():
+                    setup.download_python_installer()
                 
                 launcher.show_choice(
                     "⚠️",
                     "Python Not Found",
-                    "Python is required to run BeamSkin Studio.\nWould you like to open the download page?",
-                    "Open Download Page",
-                    "Close",
-                    open_python_site,
+                    "Python is required to run BeamSkin Studio.\nWould you like to download and install it now?",
+                    "Download Python",
+                    "Cancel",
+                    download_and_install,
                     launcher.app.quit
                 )
                 return

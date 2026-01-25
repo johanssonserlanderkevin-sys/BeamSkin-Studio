@@ -1,23 +1,56 @@
-"""GitHub update checker with custom UI"""
+"""GitHub update checker with custom UI
+FIXED: Works with PyInstaller bundled executables
+"""
 import requests
 from tkinter import messagebox
 import webbrowser
 import customtkinter as ctk
 import re
+import os
+import sys
+
+def get_base_path():
+    """Get the base path for resources (works in dev and PyInstaller)"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        return sys._MEIPASS
+    else:
+        # Running in development
+        return os.path.dirname(os.path.abspath(__file__))
 
 def read_version():
     """Read version from version.txt"""
     print(f"[DEBUG] ========== READING VERSION FILE ==========")
-    try:
-        with open('version.txt', 'r') as f:
-            content = f.read().strip()
-            if "Version:" in content:
-                version = content.replace("Version:", "").strip()
-                return version
-            return content
-    except Exception as e:
-        print(f"[DEBUG] ERROR reading version.txt: {e}")
-        return "Unknown"
+    
+    # Try multiple paths to find version.txt
+    possible_paths = [
+        os.path.join(get_base_path(), 'version.txt'),  # PyInstaller bundled
+        os.path.join(os.getcwd(), 'version.txt'),      # Current directory
+        'version.txt',                                  # Relative to script
+    ]
+    
+    for version_path in possible_paths:
+        if os.path.exists(version_path):
+            try:
+                with open(version_path, 'r') as f:
+                    content = f.read().strip()
+                    if "Version:" in content:
+                        version = content.replace("Version:", "").strip()
+                    else:
+                        version = content
+                    print(f"[DEBUG] Version loaded from: {version_path}")
+                    print(f"[DEBUG] Version: {version}")
+                    return version
+            except Exception as e:
+                print(f"[DEBUG] Failed to read {version_path}: {e}")
+                continue
+    
+    # If no version.txt found, return default
+    print(f"[DEBUG] WARNING: version.txt not found in any location")
+    print(f"[DEBUG] Searched paths:")
+    for path in possible_paths:
+        print(f"[DEBUG]   - {path}")
+    return "0.0.0.Unknown"
 
 CURRENT_VERSION = read_version()
 
@@ -107,7 +140,7 @@ def prompt_update(new_version):
             f"Would you like to download it now?"
         )
         if response:
-            webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio/releases")
+            webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
         return
     
     # Create custom update window
@@ -185,7 +218,7 @@ def prompt_update(new_version):
     def download_update():
         """Open GitHub releases page"""
         print(f"[DEBUG] Opening GitHub releases page...")
-        webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio/releases")
+        webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
         update_window.destroy()
     
     def maybe_later():
@@ -250,7 +283,7 @@ def check_for_updates():
                         f"Version {latest_version} is available!\nDownload now?"
                     )
                     if response:
-                        webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio/releases")
+                        webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
             else:
                 print(f"[DEBUG] Already on latest version (or newer)")
     except Exception as e:

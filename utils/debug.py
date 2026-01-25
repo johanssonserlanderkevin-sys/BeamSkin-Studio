@@ -49,22 +49,37 @@ class DebugOutput(io.StringIO):
     """Custom output stream for debug window"""
     def __init__(self):
         super().__init__()
+        # FIX: Capture the current stdout, but handle cases where it might be None
         self.terminal = sys.stdout
+        self.enabled = True
     
     def write(self, message):
-        self.terminal.write(message)
-        if debug_mode_enabled and debug_textbox is not None:
+        # FIX: Only write to terminal if it exists (prevents crash in windowed mode)
+        if self.terminal is not None:
             try:
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                debug_textbox.insert("end", f"[{timestamp}] {message}")
-                debug_textbox.see("end")
-            except:
+                self.terminal.write(message)
+            except Exception:
                 pass
+        
+        # Only write to debug window if enabled and textbox exists
+        if self.enabled and debug_mode_enabled and debug_textbox is not None:
+            try:
+                if debug_textbox.winfo_exists():
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    # Use a small delay or ensure we're not flooding
+                    debug_textbox.insert("end", f"[{timestamp}] {message}")
+                    debug_textbox.see("end")
+            except Exception:
+                pass
+        
+        # FIX: Must return the number of characters written
+        return len(message)
     
     def flush(self):
-        self.terminal.flush()
+        if self.terminal is not None and hasattr(self.terminal, 'flush'):
+            self.terminal.flush()
 
-def create_debug_window(app, colors):
+def create_debug_window(app, colors, on_close_callback=None):
     """Create debug console window"""
     global debug_window, debug_textbox, debug_mode_enabled
     
@@ -77,6 +92,12 @@ def create_debug_window(app, colors):
     debug_window.title("Debug Console")
     debug_window.geometry("800x600")
     debug_window.configure(fg_color=colors["app_bg"])
+    
+    # Make debug window stay on top and set as transient
+    debug_window.attributes('-topmost', True)
+    debug_window.transient(app)
+    debug_window.lift()
+    debug_window.focus_force()
     
     header_frame = ctk.CTkFrame(debug_window, corner_radius=12, 
                                 fg_color=colors["frame_bg"])
@@ -117,11 +138,14 @@ def create_debug_window(app, colors):
         global debug_mode_enabled
         debug_mode_enabled = False
         debug_window.destroy()
+        # Call the callback to turn off the toggle
+        if on_close_callback and callable(on_close_callback):
+            on_close_callback()
     
     debug_window.protocol("WM_DELETE_WINDOW", on_close)
     print("[DEBUG] Debug console opened")
 
-def toggle_debug_mode(app, colors):
+def toggle_debug_mode(app, colors, on_close=None):
     """Toggle debug mode on/off"""
     global debug_mode_enabled, debug_output
     if debug_mode_enabled:
@@ -131,8 +155,11 @@ def toggle_debug_mode(app, colors):
         # Restore original stdout
         if hasattr(sys, '_original_stdout'):
             sys.stdout = sys._original_stdout
+        # Call the callback to turn off the toggle
+        if on_close and callable(on_close):
+            on_close()
     else:
-        create_debug_window(app, colors)
+        create_debug_window(app, colors, on_close_callback=on_close)
         # Redirect stdout to debug window
         debug_output = DebugOutput()
         if not hasattr(sys, '_original_stdout'):

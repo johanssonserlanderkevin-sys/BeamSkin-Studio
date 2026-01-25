@@ -1,524 +1,528 @@
-"""File operations for JBEAM/JSON editing"""
+# file_ops.py
+# Complete file operations module for BeamNG Skin Studio
+
 import os
-import json
-import re
-import copy
 import shutil
-from tkinter import messagebox
+import tempfile
+import zipfile
+import getpass
+import re
 
-VEHICLE_FOLDER = os.path.join(os.getcwd(), "vehicles")
-os.makedirs(VEHICLE_FOLDER, exist_ok=True)
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
 
-def create_vehicle_folders(carid):
+def sanitize_skin_id(name):
     """
-    Creates:
-    vehicles/<carid>/SKINNAME
+    Convert skin name to valid ID format.
+    Example: "My Cool Skin" -> "my_cool_skin"
     """
-    car_folder = os.path.join(VEHICLE_FOLDER, carid)
-    skin_folder = os.path.join(car_folder, "SKINNAME")
-    os.makedirs(skin_folder, exist_ok=True)
+    return name.lower().replace(" ", "_")
 
-def delete_vehicle_folders(carid):
+def sanitize_mod_name(name):
     """
-    Deletes:
-    vehicles/<carid>/
-    imagesforgui/vehicles/<carid>/
+    Clean mod name for file system use.
+    Removes spaces and strips whitespace.
     """
-    # Delete vehicle folder
-    car_folder = os.path.join(VEHICLE_FOLDER, carid)
-    if os.path.exists(car_folder):
-        shutil.rmtree(car_folder)
+    return name.strip().replace(" ", "_")
+
+def get_beamng_mods_path():
+    """
+    Get the default BeamNG.drive mods folder path.
+    Returns: C:\\Users\\{username}\\AppData\\Local\\BeamNG\\BeamNG.drive\\current\\mods
+    """
+    username = getpass.getuser()
+    return os.path.join(
+        "C:\\Users",
+        username,
+        "AppData",
+        "Local",
+        "BeamNG",
+        "BeamNG.drive",
+        "current",
+        "mods"
+    )
+
+def zip_folder(source_dir, zip_path):
+    """
+    Create a ZIP file from a directory.
     
-    # Delete preview image folder
-    image_folder = os.path.join("imagesforgui", "vehicles", carid)
-    if os.path.exists(image_folder):
-        shutil.rmtree(image_folder)
-        print(f"[DEBUG] Deleted preview image folder: {image_folder}")
-
-
-def edit_material_json(json_path, skinname_folder, carid):
+    Args:
+        source_dir: Directory to zip
+        zip_path: Path where ZIP file should be created
     """
-    Edits the material JSON file to keep only the targeted skin sections,
-    renames them to use 'skinname' as a placeholder, and updates the baseColorMap path.
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for root_dir, _, files in os.walk(source_dir):
+            for file in files:
+                full_path = os.path.join(root_dir, file)
+                relative_path = os.path.relpath(full_path, source_dir)
+                zipf.write(full_path, relative_path)
+
+# =============================================================================
+# SINGLE SKIN GENERATION (LEGACY - for backward compatibility)
+# =============================================================================
+
+def generate_mod(
+    mod_name,
+    vehicle_id,
+    skin_display_name,
+    dds_path,
+    output_path=None,
+    progress_callback=None,
+    author=None
+):
+    """
+    Generate a single-skin mod (legacy function).
     
-    Rules:
-    1. Only keep sections where the key ends with the same skin name
-    2. Rename all kept entries to use '.skin.skinname' as placeholder
-    3. Update name and mapTo fields to match the new key
-    4. Update baseColorMap in Stage 2 (index 1) to the placeholder path format
-    5. The generator will later replace 'skinname' with the actual skin name
-    6. Keep all other properties unchanged
+    Args:
+        mod_name: Name of the mod/ZIP file
+        vehicle_id: Car ID (e.g., "etk800")
+        skin_display_name: Display name for the skin
+        dds_path: Path to the DDS texture file
+        output_path: Optional custom output directory
+        progress_callback: Optional function to call with progress updates (0.0 to 1.0)
+        author: Optional author name
+    
+    Returns:
+        Path to the created ZIP file
     """
-    # Use 'skinname' as the placeholder
-    skinname = "skinname"
+    print(f"\n{'='*60}")
+    print(f"SINGLE SKIN MOD GENERATION")
+    print(f"{'='*60}")
+    print(f"Mod Name: {mod_name}")
+    print(f"Vehicle ID: {vehicle_id}")
+    print(f"Skin Name: {skin_display_name}")
+    print(f"DDS Path: {dds_path}")
+    
+    # Sanitize mod name
+    mod_name = sanitize_mod_name(mod_name)
+    
+    # Find template folder
+    template_path = os.path.join(os.getcwd(), "vehicles", vehicle_id, "SKINNAME")
+    
+    print(f"Template path: {template_path}")
+    
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(
+            f"No template found for vehicle '{vehicle_id}'.\n"
+            f"Expected location: {template_path}\n\n"
+            f"Please make sure the vehicle exists in the Developer tab."
+        )
+    
+    # Create temporary directory
+    temp_dir = tempfile.mkdtemp()
+    print(f"Temp directory: {temp_dir}")
     
     try:
-        print(f"[DEBUG] \n--- Starting JSON Edit Process ---")
-        print(f"[DEBUG] Reading JSON file: {json_path}")
-        print(f"[DEBUG] Target Car ID: {carid}")
-        print(f"[DEBUG] Using placeholder: 'skinname' (will be replaced by generator)")
+        # Create destination folder structure
+        dest_skin_folder = os.path.join(temp_dir, "vehicles", vehicle_id, mod_name)
         
-        # Read the raw file content
-        with open(json_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # Copy template folder (exclude existing .dds files)
+        def ignore_dds_files(directory, files):
+            return [f for f in files if f.lower().endswith(".dds")]
         
-        # Clean the JSON content
-        print("[DEBUG] Cleaning JSON (removing comments and fixing trailing commas)...")
+        print(f"Copying template to: {dest_skin_folder}")
+        shutil.copytree(template_path, dest_skin_folder, ignore=ignore_dds_files)
         
-        # Remove single-line comments (// ...)
-        lines = content.split('\n')
-        cleaned_lines = []
-        for line in lines:
-            # Remove // comments but preserve strings that might contain //
-            if '//' in line:
-                # Simple approach: find // outside of strings
-                in_string = False
-                escape = False
-                comment_pos = -1
-                for i, char in enumerate(line):
-                    if escape:
-                        escape = False
-                        continue
-                    if char == '\\':
-                        escape = True
-                        continue
-                    if char == '"':
-                        in_string = not in_string
-                    if not in_string and i < len(line) - 1 and line[i:i+2] == '//':
-                        comment_pos = i
-                        break
-                if comment_pos >= 0:
-                    line = line[:comment_pos]
-            cleaned_lines.append(line)
+        if progress_callback:
+            progress_callback(0.2)
         
-        content = '\n'.join(cleaned_lines)
+        # Copy DDS file
+        dds_filename = os.path.basename(dds_path)
+        dds_dest = os.path.join(dest_skin_folder, dds_filename)
+        print(f"Copying DDS: {dds_filename}")
+        shutil.copy(dds_path, dds_dest)
         
-        # Remove block comments (/* ... */)
-        content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+        # Extract skin identifier from DDS filename (last part after underscore)
+        dds_last = os.path.splitext(dds_filename)[0].split("_")[-1]
+        print(f"DDS identifier: {dds_last}")
         
-        # Fix trailing commas before } or ]
-        content = re.sub(r',(\s*[}\]])', r'\1', content)
+        if progress_callback:
+            progress_callback(0.4)
         
-        # Parse the cleaned JSON
-        try:
-            data = json.loads(content)
-        except json.JSONDecodeError as e:
-            print(f"[DEBUG] ERROR: Could not parse JSON even after cleaning - {e}")
-            print("[DEBUG] Attempting to save cleaned version for manual inspection...")
-            cleaned_path = json_path + ".cleaned"
-            with open(cleaned_path, 'w', encoding='utf-8') as f:
+        # Process JBEAM files
+        print("Processing JBEAM files...")
+        process_jbeam_files(
+            dest_skin_folder,
+            dds_last,
+            skin_display_name,
+            author or "Unknown"
+        )
+        
+        if progress_callback:
+            progress_callback(0.6)
+        
+        # Process JSON files
+        print("Processing JSON files...")
+        process_json_files(
+            dest_skin_folder,
+            vehicle_id,
+            mod_name,
+            dds_filename,
+            dds_last
+        )
+        
+        if progress_callback:
+            progress_callback(0.8)
+        
+        # Create ZIP file
+        mods_path = output_path or get_beamng_mods_path()
+        os.makedirs(mods_path, exist_ok=True)
+        zip_path = os.path.join(mods_path, f"{mod_name}.zip")
+        
+        print(f"Creating ZIP: {zip_path}")
+        
+        if os.path.exists(zip_path):
+            raise FileExistsError(
+                f"A mod named '{mod_name}.zip' already exists.\n"
+                f"Please choose a different name or delete the existing file."
+            )
+        
+        zip_folder(temp_dir, zip_path)
+        
+        if progress_callback:
+            progress_callback(1.0)
+        
+        print(f"✓ Mod created successfully!")
+        print(f"{'='*60}\n")
+        
+        return zip_path
+        
+    finally:
+        # Clean up temporary directory
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+
+# =============================================================================
+# MULTI-SKIN GENERATION (NEW - supports multiple cars and skins)
+# =============================================================================
+
+def generate_multi_skin_mod(
+    project_data,
+    output_path=None,
+    progress_callback=None
+):
+    """
+    Generate a mod with multiple cars and multiple skins per car.
+    
+    Args:
+        project_data: Dictionary containing:
+            {
+                "mod_name": "MyModPack",
+                "author": "Author Name",
+                "cars": {
+                    "car_instance_id": {
+                        "base_carid": "etk800",
+                        "skins": [
+                            {"name": "Red Racing", "dds_path": "/path/to/skin.dds"},
+                            {"name": "Blue Sport", "dds_path": "/path/to/skin2.dds"}
+                        ]
+                    },
+                    "car_instance_id_2": {...}
+                }
+            }
+        output_path: Optional custom output directory
+        progress_callback: Optional function to call with progress updates (0.0 to 1.0)
+    
+    Returns:
+        Path to the created ZIP file
+    """
+    print(f"\n{'='*60}")
+    print(f"MULTI-SKIN MOD GENERATION")
+    print(f"{'='*60}")
+    
+    # Extract project data
+    mod_name = sanitize_mod_name(project_data["mod_name"])
+    author = project_data.get("author", "Unknown")
+    cars = project_data["cars"]
+    
+    # Calculate totals
+    total_cars = len(cars)
+    total_skins = sum(len(car_info['skins']) for car_info in cars.values())
+    
+    print(f"Mod Name: {mod_name}")
+    print(f"Author: {author}")
+    print(f"Total Cars: {total_cars}")
+    print(f"Total Skins: {total_skins}")
+    
+    # Create temporary directory
+    temp_dir = tempfile.mkdtemp()
+    print(f"Temp directory: {temp_dir}")
+    
+    try:
+        processed_skins = 0
+        
+        # Process each car
+        for car_instance_id, car_info in cars.items():
+            base_carid = car_info.get("base_carid", car_instance_id)
+            skins = car_info["skins"]
+            
+            print(f"\n--- Processing {base_carid} ({len(skins)} skins) ---")
+            
+            # Find template folder
+            template_path = os.path.join(os.getcwd(), "vehicles", base_carid, "SKINNAME")
+            
+            if not os.path.exists(template_path):
+                raise FileNotFoundError(
+                    f"No template found for vehicle '{base_carid}'.\n"
+                    f"Expected location: {template_path}\n\n"
+                    f"Please make sure the vehicle exists in the Developer tab."
+                )
+            
+            # Process each skin for this car
+            for skin_idx, skin in enumerate(skins):
+                skin_name = sanitize_skin_id(skin["name"])
+                dds_path = skin["dds_path"]
+                
+                print(f"  [{skin_idx + 1}/{len(skins)}] Processing: {skin['name']} -> {skin_name}")
+                
+                # Create destination folder
+                dest_skin_folder = os.path.join(
+                    temp_dir,
+                    "vehicles",
+                    base_carid,
+                    skin_name
+                )
+                
+                # Copy template folder (exclude existing .dds files)
+                def ignore_dds_files(directory, files):
+                    return [f for f in files if f.lower().endswith(".dds")]
+                
+                shutil.copytree(template_path, dest_skin_folder, ignore=ignore_dds_files)
+                
+                # Copy DDS file
+                dds_filename = os.path.basename(dds_path)
+                dds_dest = os.path.join(dest_skin_folder, dds_filename)
+                shutil.copy(dds_path, dds_dest)
+                
+                # Extract skin identifier from DDS filename
+                dds_last = os.path.splitext(dds_filename)[0].split("_")[-1]
+                
+                # Process JBEAM files
+                process_jbeam_files(
+                    dest_skin_folder,
+                    dds_last,
+                    skin["name"],  # Use original display name
+                    author
+                )
+                
+                # Process JSON files
+                process_json_files(
+                    dest_skin_folder,
+                    base_carid,
+                    skin_name,
+                    dds_filename,
+                    dds_last
+                )
+                
+                # Update progress
+                processed_skins += 1
+                if progress_callback:
+                    # Progress: 10% to 85% for skin processing
+                    progress = 0.1 + (processed_skins / total_skins) * 0.75
+                    progress_callback(progress)
+        
+        # Create ZIP file
+        print(f"\nCreating final ZIP file...")
+        
+        if progress_callback:
+            progress_callback(0.9)
+        
+        mods_path = output_path or get_beamng_mods_path()
+        os.makedirs(mods_path, exist_ok=True)
+        zip_path = os.path.join(mods_path, f"{mod_name}.zip")
+        
+        print(f"ZIP path: {zip_path}")
+        
+        if os.path.exists(zip_path):
+            raise FileExistsError(
+                f"A mod named '{mod_name}.zip' already exists.\n"
+                f"Please choose a different name or delete the existing file."
+            )
+        
+        zip_folder(temp_dir, zip_path)
+        
+        if progress_callback:
+            progress_callback(1.0)
+        
+        print(f"\n✓ Multi-skin mod created successfully!")
+        print(f"  Cars: {total_cars}")
+        print(f"  Skins: {total_skins}")
+        print(f"  Location: {zip_path}")
+        print(f"{'='*60}\n")
+        
+        return zip_path
+        
+    finally:
+        # Clean up temporary directory
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+
+# =============================================================================
+# FILE PROCESSING FUNCTIONS
+# =============================================================================
+
+def process_jbeam_files(folder_path, dds_identifier, skin_display_name, author):
+    """
+    Process all JBEAM files in the folder.
+    Updates skin references, author, and display name.
+    
+    Args:
+        folder_path: Path to the skin folder
+        dds_identifier: The skin identifier from DDS filename (e.g., "skinname")
+        skin_display_name: Display name for the skin
+        author: Author name
+    """
+    for root_dir, _, files in os.walk(folder_path):
+        for file in files:
+            if not file.endswith(".jbeam"):
+                continue
+            
+            file_path = os.path.join(root_dir, file)
+            
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Update author - use \g<1> and \g<2> to avoid group reference issues
+            content = re.sub(
+                r'("authors"\s*:\s*")[^"]*(")',
+                rf'\g<1>{author}\g<2>',
+                content
+            )
+            
+            # Update skin display name - use \g<1> and \g<2>
+            content = re.sub(
+                r'("name"\s*:\s*")[^"]*(")',
+                rf'\g<1>{skin_display_name}\g<2>',
+                content
+            )
+            
+            # Update first skin reference (e.g., "prefix_skinname": -> "prefix_newskin":)
+            # Using a function to avoid group reference issues
+            def replace_first_skin_key(match):
+                return f'"{match.group(1)}{dds_identifier}":'
+            
+            content = re.sub(
+                r'"([^"]*_)[^"]+":',
+                replace_first_skin_key,
+                content,
+                count=1
+            )
+            
+            # Update globalSkin - use \g<1> and \g<2>
+            content = re.sub(
+                r'("globalSkin"\s*:\s*")[^"]*(")',
+                rf'\g<1>{dds_identifier}\g<2>',
+                content
+            )
+            
+            # Update _extra.skin references using functions
+            def replace_extra_skin(match):
+                return f'"{match.group(1)}{dds_identifier}"'
+            
+            content = re.sub(
+                r'"([^"]*_extra\.skin\.)[^"]+"',
+                replace_extra_skin,
+                content
+            )
+            
+            def replace_extra_skin_name(match):
+                return f'{match.group(1)}{dds_identifier}"'
+            
+            content = re.sub(
+                r'("name"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
+                replace_extra_skin_name,
+                content
+            )
+            content = re.sub(
+                r'("mapTo"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
+                replace_extra_skin_name,
+                content
+            )
+            
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
-            print(f"[DEBUG] Cleaned JSON saved to: {cleaned_path}")
-            raise
-        
-        print(f"[DEBUG] Original JSON contains {len(data)} entries")
-        
-        # Find all skin names in the JSON
-        # Extract the skin name suffix (e.g., ".skin.customskin")
-        skin_suffixes = set()
-        for key in data.keys():
-            # Check if it's a skin key (contains ".skin.")
-            if ".skin." in key:
-                # Extract everything after ".skin."
-                parts = key.split(".skin.")
-                if len(parts) == 2:
-                    skin_suffixes.add(f".skin.{parts[1]}")
-        
-        if not skin_suffixes:
-            print("[DEBUG] WARNING: No skin entries found in JSON")
-            return
-        
-        # Use the first skin suffix found
-        target_suffix = list(skin_suffixes)[0]
-        print(f"[DEBUG] Target skin suffix: {target_suffix}")
-        
-        # Filter and rename data
-        filtered_data = {}
-        for key, value in data.items():
-            if key.endswith(target_suffix):
-                # Extract the prefix (everything before ".skin.")
-                parts = key.split(".skin.")
-                if len(parts) == 2:
-                    prefix = parts[0]
-                    # Create new key with the new skinname
-                    new_key = f"{prefix}.skin.{skinname}"
-                    
-                    print(f"[DEBUG] Processing: {key} → {new_key}")
-                    
-                    # Deep copy the value to avoid modifying original
-                    new_value = copy.deepcopy(value)
-                    
-                    # Update name and mapTo fields
-                    if "name" in new_value:
-                        new_value["name"] = new_key
-                        print(f"[DEBUG]   Updated name: {new_key}")
-                    
-                    if "mapTo" in new_value:
-                        new_value["mapTo"] = new_key
-                        print(f"[DEBUG]   Updated mapTo: {new_key}")
-                    
-                    # Update baseColorMap in Stage 2 (index 1)
-                    if "Stages" in new_value and isinstance(new_value["Stages"], list):
-                        if len(new_value["Stages"]) > 1:  # Stage 2 exists
-                            stage2 = new_value["Stages"][1]
-                            if "baseColorMap" in stage2:
-                                old_path = stage2["baseColorMap"]
-                                # Construct new path based on the prefix
-                                # Extract the base material name from prefix (e.g., ccf_main → ccf)
-                                base_name = prefix.split('_')[0]
-                                new_path = f"vehicles/{carid}/{skinname}/{base_name}_skin_{skinname}.dds"
-                                stage2["baseColorMap"] = new_path
-                                print(f"[DEBUG]   Updated baseColorMap in Stage 2:")
-                                print(f"[DEBUG]     Old: {old_path}")
-                                print(f"[DEBUG]     New: {new_path}")
-                    
-                    filtered_data[new_key] = new_value
-        
-        print(f"[DEBUG] \nFiltered JSON contains {len(filtered_data)} entries")
-        
-        # Write the edited JSON back to the folder
-        json_filename = os.path.basename(json_path)
-        output_path = os.path.join(skinname_folder, json_filename)
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(filtered_data, f, indent=4)
-        
-        print(f"[DEBUG] Edited JSON saved to: {output_path}")
-        print(f"[DEBUG] --- JSON Edit Complete ---\n")
-        
-    except json.JSONDecodeError as e:
-        print(f"[DEBUG] ERROR: Invalid JSON format - {e}")
-        raise Exception(f"Invalid JSON format: {str(e)}")
-    except Exception as e:
-        print(f"[DEBUG] ERROR during JSON editing: {e}")
-        raise
-        
-    except json.JSONDecodeError as e:
-        print(f"[DEBUG] ERROR: Invalid JSON format - {e}")
-        raise Exception(f"Invalid JSON format: {str(e)}")
-    except Exception as e:
-        print(f"[DEBUG] ERROR during JSON editing: {e}")
-        raise
 
-
-def check_for_updates():
-    """Check for updates from GitHub repository"""
-    print(f"\n[DEBUG] ========== UPDATE CHECK STARTED ==========")
-    print(f"[DEBUG] Current version: {CURRENT_VERSION}")
-    
-    # link to your RAW version.txt
-    url = "https://raw.githubusercontent.com/johanssonserlanderkevin-sys/BeamSkin-Studio/main/version.txt"
-    print(f"[DEBUG] Checking URL: {url}")
-    
-    try:
-        print(f"[DEBUG] Sending HTTP request...")
-        response = requests.get(url, timeout=5)
-        print(f"[DEBUG] Response status code: {response.status_code}")
-        
-        if response.status_code == 200:
-            content = response.text.strip()
-            print(f"[DEBUG] Raw content from GitHub: '{content}'")
-            
-            # This logic removes "Version: " if it exists in the file
-            if "Version:" in content:
-                latest_version = content.replace("Version:", "").strip()
-                print(f"[DEBUG] Removed 'Version:' prefix")
-            else:
-                latest_version = content
-            
-            print(f"[DEBUG] Latest version: {latest_version}")
-            print(f"[DEBUG] Current version: {CURRENT_VERSION}")
-            
-            # Compare the cloud version to your local CURRENT_VERSION
-            if latest_version != CURRENT_VERSION:
-                print(f"[DEBUG] UPDATE AVAILABLE! {CURRENT_VERSION} -> {latest_version}")
-                # Use app.after to safely trigger the popup from a background thread
-                app.after(0, lambda: prompt_update(latest_version))
-            else:
-                print(f"[DEBUG] Already on latest version")
-        else:
-            print(f"[DEBUG] Non-200 status code: {response.status_code}")
-    except Exception as e:
-        print(f"[DEBUG] Update check failed: {e}")
-    
-    print(f"[DEBUG] ========== UPDATE CHECK COMPLETE ==========\n")
-
-def prompt_update(new_version):
-    """Show integrated update notification window"""
-    print(f"\n[DEBUG] ========== UPDATE PROMPT ==========")
-    print(f"[DEBUG] Showing update dialog for version: {new_version}")
-    
-    # Create update window
-    update_window = ctk.CTkToplevel(app)
-    update_window.title("Update Available")
-    update_window.geometry("500x350")
-    update_window.resizable(False, False)
-    update_window.transient(app)
-    update_window.grab_set()
-    
-    # Center the update window
-    update_window.update_idletasks()
-    width = update_window.winfo_width()
-    height = update_window.winfo_height()
-    x = (update_window.winfo_screenwidth() // 2) - (width // 2)
-    y = (update_window.winfo_screenheight() // 2) - (height // 2)
-    update_window.geometry(f"{width}x{height}+{x}+{y}")
-    
-    # Main frame with less padding
-    main_frame = ctk.CTkFrame(update_window, fg_color=colors["frame_bg"])
-    main_frame.pack(fill="both", expand=True, padx=15, pady=15)
-    
-    # Title
-    title_label = ctk.CTkLabel(
-        main_frame,
-        text="🎉 Update Available!",
-        font=ctk.CTkFont(size=20, weight="bold"),
-        text_color=colors["accent"]
-    )
-    title_label.pack(pady=(5, 15))
-    
-    # Version info frame
-    info_frame = ctk.CTkFrame(main_frame, fg_color=colors["card_bg"], corner_radius=10)
-    info_frame.pack(fill="x", padx=10, pady=10)
-    
-    current_label = ctk.CTkLabel(
-        info_frame,
-        text=f"Current Version: {CURRENT_VERSION}",
-        font=ctk.CTkFont(size=13),
-        text_color=colors["text"]
-    )
-    current_label.pack(pady=(10, 5))
-    
-    arrow_label = ctk.CTkLabel(
-        info_frame,
-        text="↓",
-        font=ctk.CTkFont(size=16, weight="bold"),
-        text_color=colors["accent"]
-    )
-    arrow_label.pack(pady=2)
-    
-    new_label = ctk.CTkLabel(
-        info_frame,
-        text=f"New Version: {new_version}",
-        font=ctk.CTkFont(size=13, weight="bold"),
-        text_color=colors["accent"]
-    )
-    new_label.pack(pady=(5, 10))
-    
-    # Message
-    message_label = ctk.CTkLabel(
-        main_frame,
-        text="Would you like to open the GitHub page to download it?",
-        font=ctk.CTkFont(size=12),
-        text_color=colors["text"]
-    )
-    message_label.pack(pady=(10, 15))
-    
-    # Buttons frame
-    button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-    button_frame.pack(fill="x", pady=(5, 10), padx=10)
-    
-    def download_update():
-        print(f"[DEBUG] User chose to download update")
-        print(f"[DEBUG] Opening GitHub page...")
-        webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
-        print(f"[DEBUG] GitHub page opened")
-        update_window.destroy()
-    
-    def skip_update():
-        print(f"[DEBUG] User declined update")
-        update_window.destroy()
-    
-    # Download Update button
-    download_btn = ctk.CTkButton(
-        button_frame,
-        text="Download Update",
-        command=download_update,
-        fg_color=colors["accent"],
-        hover_color=colors["accent_hover"],
-        text_color=colors["accent_text"],
-        height=45,
-        corner_radius=8,
-        font=ctk.CTkFont(size=14, weight="bold")
-    )
-    download_btn.pack(side="left", expand=True, fill="x", padx=(0, 5))
-    
-    # Maybe Later button
-    later_btn = ctk.CTkButton(
-        button_frame,
-        text="Maybe Later",
-        command=skip_update,
-        fg_color=colors["card_bg"],
-        hover_color=colors["card_hover"],
-        text_color=colors["text"],
-        height=45,
-        corner_radius=8,
-        font=ctk.CTkFont(size=14)
-    )
-    later_btn.pack(side="right", expand=True, fill="x", padx=(5, 0))
-    
-    print(f"[DEBUG] Update window displayed")
-    print(f"[DEBUG] ========== UPDATE PROMPT COMPLETE ==========\n")
-
-
-# Example usage and testing function
-def test_editor():
-    """Test function to demonstrate usage"""
-    # Example: edit_material_json("path/to/skin.materials.json", "output_folder", "mycar")
-    pass
-
-
-if __name__ == "__main__":
-    test_editor()
-
-
-def edit_jbeam_material(jbeam_path, skinname_folder, carid):
+def process_json_files(folder_path, vehicle_id, skin_folder_name, dds_filename, dds_identifier):
     """
-    Edits the JBEAM file according to specifications:
-    1. Keep only the FIRST skin entry encountered
-    2. Rename it to carid_skin_skinname
-    3. Update "authors" field to placeholder "Author Name"
-    4. Update "name" field to placeholder "Skin Name"
-    5. Update "globalSkin" to "skinname"
-    6. Preserve all other fields (information.value, slotType, etc.)
+    Process all JSON files in the folder.
+    Updates skin references and texture paths.
     
-    Note: "Author Name" and "Skin Name" are placeholders that will be replaced
-    during mod generation with actual values from the Generator tab.
+    Args:
+        folder_path: Path to the skin folder
+        vehicle_id: Car ID (e.g., "etk800")
+        skin_folder_name: Name of the skin folder
+        dds_filename: Full DDS filename (e.g., "etk800_skin_red.dds")
+        dds_identifier: The skin identifier from DDS filename (e.g., "red")
     """
-    try:
-        print(f"[DEBUG] \n--- Starting JBEAM Edit Process ---")
-        print(f"[DEBUG] Reading JBEAM file: {jbeam_path}")
-        print(f"[DEBUG] Target Car ID: {carid}")
-        print(f"[DEBUG] Using placeholders: 'Author Name' and 'Skin Name' (will be replaced by generator)")
-        
-        # Read the raw file content
-        with open(jbeam_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Clean the JBEAM content (remove comments)
-        print("[DEBUG] Cleaning JBEAM (removing comments)...")
-        
-        # Remove single-line comments (// ...)
-        lines = content.split('\n')
-        cleaned_lines = []
-        for line in lines:
-            if '//' in line:
-                in_string = False
-                escape = False
-                comment_pos = -1
-                for i, char in enumerate(line):
-                    if escape:
-                        escape = False
-                        continue
-                    if char == '\\':
-                        escape = True
-                        continue
-                    if char == '"':
-                        in_string = not in_string
-                    if not in_string and i < len(line) - 1 and line[i:i+2] == '//':
-                        comment_pos = i
-                        break
-                if comment_pos >= 0:
-                    line = line[:comment_pos]
-            cleaned_lines.append(line)
-        
-        content = '\n'.join(cleaned_lines)
-        
-        # Remove block comments (/* ... */)
-        content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
-        
-        # Fix trailing commas before } or ]
-        content = re.sub(r',(\s*[}\]])', r'\1', content)
-        
-        # Parse the cleaned JSON
-        try:
-            data = json.loads(content)
-        except json.JSONDecodeError as e:
-            print(f"[DEBUG] ERROR: Could not parse JBEAM even after cleaning - {e}")
-            print("[DEBUG] Attempting to save cleaned version for manual inspection...")
-            cleaned_path = jbeam_path + ".cleaned"
-            with open(cleaned_path, 'w', encoding='utf-8') as f:
+    for root_dir, _, files in os.walk(folder_path):
+        for file in files:
+            if not file.endswith(".json"):
+                continue
+            
+            file_path = os.path.join(root_dir, file)
+            
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Update generic .skin. references using functions to avoid group reference issues
+            def replace_skin_ref(match):
+                return f'"{match.group(1)}{dds_identifier}"'
+            
+            content = re.sub(
+                r'"([^"]+\.skin\.)[^"]+"',
+                replace_skin_ref,
+                content,
+                count=1
+            )
+            
+            def replace_skin_name(match):
+                return f'{match.group(1)}{dds_identifier}"'
+            
+            content = re.sub(
+                r'("name"\s*:\s*"[^"]+\.skin\.)[^"]+"',
+                replace_skin_name,
+                content,
+                count=1
+            )
+            content = re.sub(
+                r'("mapTo"\s*:\s*"[^"]+\.skin\.)[^"]+"',
+                replace_skin_name,
+                content,
+                count=1
+            )
+            
+            # Update _extra.skin references (all occurrences)
+            def replace_extra_skin_all(match):
+                return f'"{match.group(1)}{dds_identifier}"'
+            
+            content = re.sub(
+                r'"([^"]*_extra\.skin\.)[^"]+"',
+                replace_extra_skin_all,
+                content
+            )
+            
+            def replace_extra_skin_name_all(match):
+                return f'{match.group(1)}{dds_identifier}"'
+            
+            content = re.sub(
+                r'("name"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
+                replace_extra_skin_name_all,
+                content
+            )
+            content = re.sub(
+                r'("mapTo"\s*:\s*"[^"]*_extra\.skin\.)[^"]+"',
+                replace_extra_skin_name_all,
+                content
+            )
+            
+            # Update baseColorMap path - construct the replacement string safely
+            baseColorMap_replacement = f'"baseColorMap": "vehicles/{vehicle_id}/{skin_folder_name}/{dds_filename}"'
+            content = re.sub(
+                r'"baseColorMap"\s*:\s*"[^"]+\.dds"',
+                baseColorMap_replacement,
+                content
+            )
+            
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
-            print(f"[DEBUG] Cleaned JBEAM saved to: {cleaned_path}")
-            raise
-        
-        print(f"[DEBUG] Original JBEAM contains {len(data)} entries")
-        
-        # STEP 1: Find all skin entries (keys containing "_skin_")
-        skin_entries = []
-        for key in data.keys():
-            if "_skin_" in key:
-                skin_entries.append((key, data[key]))
-        
-        if not skin_entries:
-            print("[DEBUG] WARNING: No skin entries found in JBEAM")
-            return
-        
-        print(f"[DEBUG] Found {len(skin_entries)} skin entries")
-        
-        # STEP 2: Keep only the FIRST skin entry
-        first_skin_key, first_skin_value = skin_entries[0]
-        print(f"[DEBUG] \n✓ Canonical skin identified: {first_skin_key}")
-        
-        if len(skin_entries) > 1:
-            removed_skins = [key for key, _ in skin_entries[1:]]
-            print(f"[DEBUG] ✗ Removing {len(removed_skins)} other skin(s): {', '.join(removed_skins)}")
-        
-        # STEP 3: Create the new skin entry
-        new_key = f"{carid}_skin_skinname"
-        new_value = copy.deepcopy(first_skin_value)
-        
-        print(f"[DEBUG] \n✓ Renaming: {first_skin_key} → {new_key}")
-        
-        # STEP 4: Update authors and name fields to placeholders
-        if "information" in new_value and isinstance(new_value["information"], dict):
-            if "authors" in new_value["information"]:
-                old_author = new_value["information"]["authors"]
-                new_value["information"]["authors"] = "Author Name"
-                print(f"[DEBUG]   ✓ Updated authors: '{old_author}' → 'Author Name' (placeholder)")
-            
-            if "name" in new_value["information"]:
-                old_name = new_value["information"]["name"]
-                new_value["information"]["name"] = "Skin Name"
-                print(f"[DEBUG]   ✓ Updated name: '{old_name}' → 'Skin Name' (placeholder)")
-            
-            # Preserve value field
-            if "value" in new_value["information"]:
-                print(f"[DEBUG]   ✓ Preserved value: {new_value['information']['value']}")
-        
-        # STEP 5: Update globalSkin to "skinname"
-        if "globalSkin" in new_value:
-            old_global_skin = new_value["globalSkin"]
-            new_value["globalSkin"] = "skinname"
-            print(f"[DEBUG]   ✓ Updated globalSkin: '{old_global_skin}' → 'skinname'")
-        
-        # STEP 6: Preserve all other fields (slotType, etc.)
-        if "slotType" in new_value:
-            print(f"[DEBUG]   ✓ Preserved slotType: '{new_value['slotType']}'")
-        
-        # Create the filtered data with only the new skin entry
-        filtered_data = {new_key: new_value}
-        
-        print(f"[DEBUG] \n--- Summary ---")
-        print(f"[DEBUG] Original skins: {len(skin_entries)}")
-        print(f"[DEBUG] Final skins: 1")
-        print(f"[DEBUG] Removed: {len(skin_entries) - 1}")
-        
-        # Write the edited JBEAM back to the folder, keeping original filename
-        jbeam_filename = os.path.basename(jbeam_path)
-        output_path = os.path.join(skinname_folder, jbeam_filename)
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(filtered_data, f, indent=4)
-        
-        print(f"[DEBUG] Edited JBEAM saved to: {output_path}")
-        print(f"[DEBUG] --- JBEAM Edit Complete ---\n")
-        
-    except json.JSONDecodeError as e:
-        print(f"[DEBUG] ERROR: Invalid JBEAM format - {e}")
-        raise Exception(f"Invalid JBEAM format: {str(e)}")
-    except Exception as e:
-        print(f"[DEBUG] ERROR during JBEAM editing: {e}")
-        raise
-
-

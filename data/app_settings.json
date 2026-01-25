@@ -1,6 +1,6 @@
 {
     "theme": "dark",
-    "first_launch": false,
+    "first_launch": true,
     "custom_themes": {
         "dark": {
             "app_bg": "#0a0a0a",
