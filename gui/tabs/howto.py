@@ -1,7 +1,5 @@
 """
-How To Tab - COMPLETE IMPLEMENTATION
-Documentation and usage guide with all chapters
-Migrated from app_backup.py lines 2190-2660
+How To Tab
 """
 import customtkinter as ctk
 from typing import Dict, Tuple, List

@@ -67,8 +67,21 @@ class HoverPreviewManager:
 
             header = ctk.CTkFrame(self.preview_overlay, fg_color=state.colors["accent"], height=30, corner_radius=8)
             header.pack(fill="x", padx=2, pady=2)
-            vehicle_name = state.vehicle_ids.get(carid, carid)
+            
+            print(f"[DEBUG]   Looking up vehicle name...")
+            print(f"[DEBUG]   Checking state.vehicle_ids: {carid in state.vehicle_ids}")
+            print(f"[DEBUG]   Checking state.added_vehicles: {carid in state.added_vehicles}")
+            
+            vehicle_name = state.vehicle_ids.get(carid)
+            if not vehicle_name:
+                vehicle_name = state.added_vehicles.get(carid, carid)
+                print(f"[DEBUG]   Found in added_vehicles: {vehicle_name}")
+            else:
+                print(f"[DEBUG]   Found in vehicle_ids: {vehicle_name}")
+            
             header_text = f"Name: {vehicle_name} | ID: {carid}"
+            print(f"[DEBUG]   Header text: {header_text}")
+            
             ctk.CTkLabel(header, text=header_text, text_color=state.colors["accent_text"], font=("Segoe UI", 15, "bold")).pack()
             
             img_label = ctk.CTkLabel(self.preview_overlay, image=photo, text="")

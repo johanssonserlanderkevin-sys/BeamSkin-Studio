@@ -1,6 +1,5 @@
 """
-Car List Tab - Browse and copy vehicle IDs
-FIXED: Notifications now work properly with app reference
+Car List Tab
 """
 from typing import List, Tuple
 import os
@@ -11,6 +10,13 @@ import customtkinter as ctk
 from gui.state import state
 from gui.components.preview import HoverPreviewManager
 from gui.components.dialogs import show_notification
+
+try:
+    from utils.file_ops import load_added_vehicles_json
+except ImportError:
+    print("[WARNING] load_added_vehicles_json not found in file_ops")
+    def load_added_vehicles_json():
+        return {}
 
 
 class CarListTab(ctk.CTkFrame):
@@ -49,6 +55,11 @@ class CarListTab(ctk.CTkFrame):
     
     def _populate_car_list(self):
         """Populate the car list with all vehicles"""
+        # Reload from JSON file to get latest vehicles
+        vehicles = load_added_vehicles_json()
+        state.added_vehicles.clear()
+        state.added_vehicles.update(vehicles)
+        
         # Get car list from state (original car_id_list)
         car_id_list = [
             ("autobello", "Autobello Piccolina"), ("atv", "FPU Wydra"), ("barstow", "Gavril Barstow"),
@@ -73,6 +84,24 @@ class CarListTab(ctk.CTkFrame):
         # Add developer-added vehicles
         for carid, carname in state.added_vehicles.items():
             self._add_carlist_card(carid, carname, developer_added=True)
+    
+    def refresh_vehicle_list(self):
+        """Refresh the vehicle list when new vehicles are added"""
+        print(f"[DEBUG] CarListTab: refresh_vehicle_list called")
+        
+        # Clear existing car list items from state
+        for card_frame, carid, name in state.carlist_items:
+            card_frame.destroy()
+        
+        state.carlist_items.clear()
+        
+        # Repopulate the list (this will reload from JSON)
+        self._populate_car_list()
+        
+        # Reapply any active search filter
+        self._update_carlist()
+        
+        print(f"[DEBUG] CarListTab: Vehicle list refreshed with {len(state.carlist_items)} vehicles")
     
     def _add_carlist_card(self, carid: str, name: str, developer_added: bool = False):
         """Add a vehicle card to the car list"""

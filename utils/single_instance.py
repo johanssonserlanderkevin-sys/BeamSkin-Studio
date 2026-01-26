@@ -6,10 +6,14 @@ import sys
 import tempfile
 from tkinter import messagebox
 
+print(f"[DEBUG] Loading class: SingleInstanceLock")
+
 class SingleInstanceLock:
     """Ensures only one instance of the application can run at a time"""
     
     def __init__(self, app_name="BeamSkinStudio"):
+    
+        print(f"[DEBUG] __init__ called")
         self.app_name = app_name
         self.lock_file = None
         self.lock_file_path = None
@@ -25,16 +29,16 @@ class SingleInstanceLock:
         self.lock_file_path = os.path.join(lock_dir, f"{app_name}.lock")
     
     def acquire(self):
+    
+        print(f"[DEBUG] acquire called")
         """Try to acquire the lock. Returns True if successful, False if another instance is running"""
         try:
             # Check if lock file exists
             if os.path.exists(self.lock_file_path):
-                # Try to read the PID from the lock file
                 try:
                     with open(self.lock_file_path, 'r') as f:
                         pid = int(f.read().strip())
                     
-                    # Check if the process is still running
                     if self._is_process_running(pid):
                         print(f"[DEBUG] Another instance is running (PID: {pid})")
                         return False
@@ -50,7 +54,6 @@ class SingleInstanceLock:
                     except:
                         pass
             
-            # Create lock file with current PID
             with open(self.lock_file_path, 'w') as f:
                 f.write(str(os.getpid()))
             
@@ -63,6 +66,8 @@ class SingleInstanceLock:
             return True  # Allow app to run if lock mechanism fails
     
     def release(self):
+    
+        print(f"[DEBUG] release called")
         """Release the lock by removing the lock file"""
         if self.lock_file and os.path.exists(self.lock_file):
             try:
@@ -100,6 +105,9 @@ class SingleInstanceLock:
 
 
 def check_single_instance(app_name="BeamSkinStudio"):
+
+
+    print(f"[DEBUG] check_single_instance called")
     """
     Check if another instance is running and show error dialog if so.
     Returns True if this is the only instance, False otherwise.
@@ -107,20 +115,18 @@ def check_single_instance(app_name="BeamSkinStudio"):
     lock = SingleInstanceLock(app_name)
     
     if not lock.acquire():
-        # Another instance is running - try to bring it to front
         print(f"[DEBUG] Another instance detected, attempting to bring it to front...")
         
         try:
-            # Try to bring the existing window to front
             if sys.platform == "win32":
-                # Windows: Try to find and activate the window
                 try:
                     import win32gui
                     import win32con
                     
                     def callback(hwnd, extra):
+                    
+                        print(f"[DEBUG] callback called")
                         if app_name.lower() in win32gui.GetWindowText(hwnd).lower():
-                            # Found the window, bring it to front
                             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
                             win32gui.SetForegroundWindow(hwnd)
                             return False
@@ -134,7 +140,6 @@ def check_single_instance(app_name="BeamSkinStudio"):
         
         # Show error dialog
         try:
-            # Import tkinter for message box
             import tkinter as tk
             root = tk.Tk()
             root.withdraw()  # Hide the root window
@@ -160,12 +165,16 @@ def check_single_instance(app_name="BeamSkinStudio"):
 _global_lock = None
 
 def acquire_global_lock(app_name="BeamSkinStudio"):
+
+    print(f"[DEBUG] acquire_global_lock called")
     """Acquire a global lock. Call this at program start."""
     global _global_lock
     _global_lock = SingleInstanceLock(app_name)
     return _global_lock.acquire()
 
 def release_global_lock():
+
+    print(f"[DEBUG] release_global_lock called")
     """Release the global lock. Call this at program exit."""
     global _global_lock
     if _global_lock:

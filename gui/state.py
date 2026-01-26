@@ -1,11 +1,13 @@
 """
-State Manager - Centralized state management for the application
-Eliminates global variables by providing a singleton state manager
+State Manager 
 """
 from typing import Dict, List, Tuple, Optional, Any
 import customtkinter as ctk
-from core.settings import colors, current_theme, app_settings, THEMES, added_vehicles, EDITABLE_COLOR_KEYS, COLOR_LABELS
+from core.settings import colors, current_theme, app_settings, THEMES, EDITABLE_COLOR_KEYS, COLOR_LABELS
 from core.updater import CURRENT_VERSION
+
+# Import added_vehicles - DO NOT copy, use the reference
+import core.settings as settings_module
 
 try:
     from core.config import VEHICLE_IDS
@@ -40,7 +42,9 @@ class StateManager:
         
         # Vehicle data
         self.vehicle_ids = VEHICLE_IDS
-        self.added_vehicles = added_vehicles
+        # CRITICAL: Use the REFERENCE from settings module, not a copy
+        # This ensures changes to added_vehicles are reflected in state
+        self._settings_module = settings_module
         
         # Version
         self.current_version = CURRENT_VERSION
@@ -75,9 +79,45 @@ class StateManager:
         
         # Icon references (for output icons)
         self.output_icons: Dict[str, Any] = {}
+    
+    @property
+    def added_vehicles(self):
+        """Property that always returns the current added_vehicles from settings module"""
+        return self._settings_module.added_vehicles
+    
+    def reload_added_vehicles(self):
+        """Force reload added_vehicles from disk"""
+        import json
+        import os
+        
+        json_path = "vehicles/added_vehicles.json"
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    loaded = json.load(f)
+                
+                # Update the settings module's added_vehicles dict
+                self._settings_module.added_vehicles.clear()
+                self._settings_module.added_vehicles.update(loaded)
+                
+                # Also update vehicle_ids so lookups work
+                for carid, carname in loaded.items():
+                    if carid not in self.vehicle_ids:
+                        self.vehicle_ids[carid] = carname
+                
+                print(f"[DEBUG] Reloaded {len(loaded)} vehicles from added_vehicles.json")
+                return True
+            except Exception as e:
+                print(f"[ERROR] Failed to reload added_vehicles: {e}")
+                return False
+        return False
         
     def get_vehicle_name(self, carid: str) -> str:
         """Get the display name for a vehicle ID"""
+        # Check added_vehicles first (custom vehicles)
+        if carid in self.added_vehicles:
+            return self.added_vehicles[carid]
+        # Then check built-in vehicles
         return self.vehicle_ids.get(carid, carid)
     
     def is_vehicle_in_project(self, carid: str) -> bool:

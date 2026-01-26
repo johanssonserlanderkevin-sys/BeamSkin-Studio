@@ -1,7 +1,5 @@
 """
-BeamSkin Studio - Quick Launcher (No Checks)
-Shows loading GUI and launches main.py, closes only when main app is ready
-UPDATED: Uses logo image from gui/Icons folder
+BeamSkin Studio - Quick Launcher
 """
 import customtkinter as ctk
 from PIL import Image
@@ -11,7 +9,6 @@ import time
 import threading
 import os
 
-# Theme colors - MATCHING MAIN APP (from settings.py dark theme)
 COLORS = {
     "bg": "#0a0a0a",           # app_bg
     "frame_bg": "#141414",     # frame_bg
@@ -21,15 +18,22 @@ COLORS = {
     "text_secondary": "#999999" # text_secondary
 }
 
+print(f"[DEBUG] Loading class: QuickLauncher")
+
 class QuickLauncher:
     def __init__(self):
+        print(f"[DEBUG] __init__ called")
+        
+        # LAUNCH MAIN APP FIRST before creating GUI
+        self.launch_main_app()
+        
+        # Now create the loading GUI
         self.app = ctk.CTk()
         self.app.title("BeamSkin Studio")
-        self.app.geometry("600x450")  # Slightly taller to accommodate logo
+        self.app.geometry("600x450")
         self.app.resizable(False, False)
         self.app.configure(fg_color=COLORS["bg"])
         
-        # Keep window on top of all others
         self.app.attributes('-topmost', True)
         
         # Remove window decorations for cleaner look
@@ -41,7 +45,6 @@ class QuickLauncher:
         # Center window
         self.center_window()
         
-        # Create UI
         self.create_ui()
         
         # Lift window to front
@@ -64,7 +67,7 @@ class QuickLauncher:
                 logo_image = ctk.CTkImage(
                     light_image=pil_image,
                     dark_image=pil_image,
-                    size=(200, 200)  # Adjust size here
+                    size=(200, 200)
                 )
                 print(f"[DEBUG] Loaded logo from: {logo_path}")
                 return logo_image
@@ -74,8 +77,59 @@ class QuickLauncher:
         except Exception as e:
             print(f"[DEBUG] Failed to load logo: {e}")
             return None
+    
+    def launch_main_app(self):
+        print(f"[DEBUG] launch_main_app called - launching main.py NOW")
+        """Launch main.py immediately"""
         
+        # Get the parent directory (go up from launchers-scripts to root)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        main_py_path = os.path.join(parent_dir, "main.py")
+        
+        # Launch main app without console window
+        if sys.platform == 'win32':
+            self.process = subprocess.Popen(
+                ["pythonw", main_py_path],
+                cwd=parent_dir,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+        else:
+            self.process = subprocess.Popen(
+                ["python", main_py_path],
+                cwd=parent_dir
+            )
+        
+        print(f"[DEBUG] main.py launched, PID: {self.process.pid}")
+    
+    def wait_and_close(self):
+        print(f"[DEBUG] wait_and_close called")
+        """Animate progress bar, then wait for main app to load, then close"""
+        
+        # Animate progress bar
+        for i in range(101):
+            self.progress_bar.set(i / 100)
+            self.app.update()
+            time.sleep(0.011)  # Smooth animation
+        
+        # Wait additional time for main app window to appear
+        time.sleep(1.2)
+        
+        # Close launcher
+        self.app.destroy()
+    
+    def run(self):
+        print(f"[DEBUG] run called")
+        """Start the launcher"""
+        
+        # Start wait sequence in background
+        threading.Thread(target=self.wait_and_close, daemon=True).start()
+        
+        # Run GUI (this will show while main app loads)
+        self.app.mainloop()
+
     def center_window(self):
+        print(f"[DEBUG] center_window called")
         """Center the window on screen"""
         self.app.update_idletasks()
         x = (self.app.winfo_screenwidth() // 2) - (600 // 2)
@@ -83,6 +137,7 @@ class QuickLauncher:
         self.app.geometry(f"600x450+{x}+{y}")
     
     def create_ui(self):
+        print(f"[DEBUG] create_ui called")
         """Create the launcher UI"""
         # Main container with border (matching main app accent color)
         main_frame = ctk.CTkFrame(
@@ -151,51 +206,6 @@ class QuickLauncher:
             font=ctk.CTkFont(size=11),
             text_color=COLORS["text_secondary"]
         ).pack()
-    
-    def animate_progress(self):
-        """Animate the progress bar smoothly"""
-        for i in range(101):
-            self.progress_bar.set(i / 100)
-            self.app.update()
-            time.sleep(0.015)  # Smooth animation
-    
-    def launch_app(self):
-        """Launch the main application and wait for it to start"""
-        # Animate progress bar
-        self.animate_progress()
-        
-        # Get the parent directory (go up from launchers-scripts to root)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(script_dir)
-        main_py_path = os.path.join(parent_dir, "main.py")
-        
-        # Launch main app without console window
-        if sys.platform == 'win32':
-            process = subprocess.Popen(
-                ["pythonw", main_py_path],
-                cwd=parent_dir,  # Set working directory to parent
-                creationflags=subprocess.CREATE_NO_WINDOW
-            )
-        else:
-            process = subprocess.Popen(
-                ["python", main_py_path],
-                cwd=parent_dir  # Set working directory to parent
-            )
-        
-        # Wait longer for main app window to appear
-        time.sleep(2.2)
-        
-        # Close launcher
-        self.app.destroy()
-    
-    def run(self):
-        """Start the launcher"""
-        # Start launch sequence in background
-        threading.Thread(target=self.launch_app, daemon=True).start()
-        
-        # Run GUI
-        self.app.mainloop()
-
 
 if __name__ == "__main__":
     launcher = QuickLauncher()

@@ -1,5 +1,4 @@
 """GitHub update checker with custom UI
-FIXED: Works with PyInstaller bundled executables
 """
 import requests
 from tkinter import messagebox
@@ -10,6 +9,8 @@ import os
 import sys
 
 def get_base_path():
+
+    print(f"[DEBUG] get_base_path called")
     """Get the base path for resources (works in dev and PyInstaller)"""
     if getattr(sys, 'frozen', False):
         # Running as compiled executable
@@ -19,6 +20,8 @@ def get_base_path():
         return os.path.dirname(os.path.abspath(__file__))
 
 def read_version():
+
+    print(f"[DEBUG] read_version called")
     """Read version from version.txt"""
     print(f"[DEBUG] ========== READING VERSION FILE ==========")
     
@@ -45,7 +48,6 @@ def read_version():
                 print(f"[DEBUG] Failed to read {version_path}: {e}")
                 continue
     
-    # If no version.txt found, return default
     print(f"[DEBUG] WARNING: version.txt not found in any location")
     print(f"[DEBUG] Searched paths:")
     for path in possible_paths:
@@ -59,12 +61,16 @@ _app_instance = None
 _colors = None
 
 def set_app_instance(app, colors):
+
+    print(f"[DEBUG] set_app_instance called")
     """Set the app instance and colors for update prompts"""
     global _app_instance, _colors
     _app_instance = app
     _colors = colors
 
 def parse_version(version_string):
+
+    print(f"[DEBUG] parse_version called")
     """
     Parse version string into comparable tuple.
     Examples:
@@ -101,6 +107,8 @@ def parse_version(version_string):
     return (0, 0, 0, 999)
 
 def is_newer_version(remote_version, current_version):
+
+    print(f"[DEBUG] is_newer_version called")
     """
     Compare two version strings to see if remote is newer.
     Returns True if remote_version is newer than current_version.
@@ -126,6 +134,8 @@ def is_newer_version(remote_version, current_version):
         return remote_version != current_version
 
 def prompt_update(new_version):
+
+    print(f"[DEBUG] prompt_update called")
     """Show custom update notification window"""
     print(f"\n[DEBUG] ========== UPDATE PROMPT ==========")
     print(f"[DEBUG] Showing update dialog for version: {new_version}")
@@ -143,7 +153,6 @@ def prompt_update(new_version):
             webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
         return
     
-    # Create custom update window
     update_window = ctk.CTkToplevel(_app_instance)
     update_window.title("Update Available")
     update_window.geometry("500x350")
@@ -151,7 +160,6 @@ def prompt_update(new_version):
     update_window.transient(_app_instance)
     update_window.grab_set()
     
-    # Center the update window
     update_window.update_idletasks()
     width = update_window.winfo_width()
     height = update_window.winfo_height()
@@ -166,7 +174,7 @@ def prompt_update(new_version):
     # Title
     title_label = ctk.CTkLabel(
         main_frame,
-        text="🎉 Update Available!",
+        text="Update Available!",
         font=ctk.CTkFont(size=20, weight="bold"),
         text_color=_colors["accent"]
     )
@@ -195,7 +203,7 @@ def prompt_update(new_version):
     new_label = ctk.CTkLabel(
         info_frame,
         text=f"New Version: {new_version}",
-        font=ctk.CTkFont(size=13, weight="bold"),
+        font=ctk.CTkFont(size=19, weight="bold"),
         text_color=_colors["accent"]
     )
     new_label.pack(pady=(5, 10))
@@ -216,12 +224,16 @@ def prompt_update(new_version):
     button_frame.pack(pady=10, fill="x", padx=20)
     
     def download_update():
+    
+        print(f"[DEBUG] download_update called")
         """Open GitHub releases page"""
         print(f"[DEBUG] Opening GitHub releases page...")
         webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
         update_window.destroy()
     
     def maybe_later():
+    
+        print(f"[DEBUG] maybe_later called")
         """Close update window"""
         print(f"[DEBUG] User chose maybe later")
         update_window.destroy()
@@ -229,7 +241,7 @@ def prompt_update(new_version):
     # Download button
     download_btn = ctk.CTkButton(
         button_frame,
-        text="📥 Download Update",
+        text="Download Update",
         command=download_update,
         fg_color=_colors["accent"],
         hover_color=_colors["accent_hover"],
@@ -255,6 +267,8 @@ def prompt_update(new_version):
     skip_btn.pack(side="right", fill="x", expand=True, padx=(5, 0))
 
 def check_for_updates():
+
+    print(f"[DEBUG] check_for_updates called")
     """Check for updates from GitHub repository"""
     print(f"\n[DEBUG] ========== UPDATE CHECK STARTED ==========")
     print(f"[DEBUG] Current version: {CURRENT_VERSION}")
@@ -262,7 +276,7 @@ def check_for_updates():
     url = "https://raw.githubusercontent.com/johanssonserlanderkevin-sys/BeamSkin-Studio/main/version.txt"
     
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=3)
         
         if response.status_code == 200:
             content = response.text.strip()

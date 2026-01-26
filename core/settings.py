@@ -300,14 +300,39 @@ def reset_theme_colors(theme_name):
 
 
 def update_theme_color(theme_name, color_key, color_value):
-    """Update a single color in a theme"""
-    if theme_name in THEMES and color_key in THEMES[theme_name]:
-        THEMES[theme_name][color_key] = color_value
-        app_settings["custom_themes"] = THEMES
-        save_settings()
-        print(f"[DEBUG] Updated {theme_name}.{color_key} to {color_value}")
-        return True
-    return False
+    """Update a single color in a theme
+    
+    Args:
+        theme_name: Name of the theme ("dark" or "light")
+        color_key: Key of the color to update
+        color_value: New color value (hex string)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    # Ensure THEMES exists in app_settings
+    if "custom_themes" not in app_settings:
+        import copy
+        app_settings["custom_themes"] = copy.deepcopy(THEMES)
+    
+    # Check if theme and color key exist
+    if theme_name not in THEMES:
+        print(f"[ERROR] Theme '{theme_name}' not found")
+        return False
+    
+    if color_key not in THEMES[theme_name]:
+        print(f"[ERROR] Color key '{color_key}' not found in theme '{theme_name}'")
+        return False
+    
+    # Update the color
+    THEMES[theme_name][color_key] = color_value
+    app_settings["custom_themes"][theme_name][color_key] = color_value
+    
+    # Save settings
+    save_settings()
+    
+    print(f"[DEBUG] Updated {theme_name}.{color_key} to {color_value}")
+    return True
 
 
 def get_theme_color(theme_name, color_key):
@@ -315,3 +340,81 @@ def get_theme_color(theme_name, color_key):
     if theme_name in THEMES and color_key in THEMES[theme_name]:
         return THEMES[theme_name][color_key]
     return None
+
+
+def toggle_theme(app_instance=None):
+    """
+    Toggle between dark and light themes
+    
+    Args:
+        app_instance: Optional reference to the main app for live UI updates
+    
+    Returns:
+        The new theme name ("dark" or "light")
+    """
+    global current_theme, colors
+    
+    # Toggle theme
+    new_theme = "light" if current_theme == "dark" else "dark"
+    
+    # Update global variables
+    current_theme = new_theme
+    colors = THEMES[current_theme]
+    
+    # Save to settings
+    app_settings["theme"] = new_theme
+    save_settings()
+    
+    print(f"[DEBUG] Theme toggled to: {new_theme}")
+    
+    # If app instance provided, update its state
+    if app_instance:
+        try:
+            from gui.state import state
+            state.current_theme = new_theme
+            state.colors = colors
+            print(f"[DEBUG] Updated app state with new theme")
+        except Exception as e:
+            print(f"[DEBUG] Could not update app state: {e}")
+    
+    return new_theme
+
+
+def set_theme(theme_name, app_instance=None):
+    """
+    Set a specific theme
+    
+    Args:
+        theme_name: "dark" or "light"
+        app_instance: Optional reference to the main app for live UI updates
+    
+    Returns:
+        True if successful, False if theme doesn't exist
+    """
+    global current_theme, colors
+    
+    if theme_name not in THEMES:
+        print(f"[ERROR] Theme '{theme_name}' does not exist")
+        return False
+    
+    # Update global variables
+    current_theme = theme_name
+    colors = THEMES[current_theme]
+    
+    # Save to settings
+    app_settings["theme"] = theme_name
+    save_settings()
+    
+    print(f"[DEBUG] Theme set to: {theme_name}")
+    
+    # If app instance provided, update its state
+    if app_instance:
+        try:
+            from gui.state import state
+            state.current_theme = theme_name
+            state.colors = colors
+            print(f"[DEBUG] Updated app state with new theme")
+        except Exception as e:
+            print(f"[DEBUG] Could not update app state: {e}")
+    
+    return True

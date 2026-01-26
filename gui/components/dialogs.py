@@ -1,7 +1,5 @@
 """
 Dialog Components - Reusable dialog windows and notifications
-FIXED: Notifications now work reliably by requiring app parameter
-ADDED: Custom confirmation dialog that matches GUI theme
 """
 import customtkinter as ctk
 import webbrowser
@@ -9,6 +7,9 @@ from gui.state import state
 
 
 def show_notification(app, message, type="info", duration=3000):
+
+
+    print(f"[DEBUG] show_notification called")
     """
     Display a notification at the top of the app.
     
@@ -93,6 +94,9 @@ def show_notification(app, message, type="info", duration=3000):
 
 
 def show_confirmation_dialog(parent, title: str, message: str) -> bool:
+
+
+    print(f"[DEBUG] show_confirmation_dialog called")
     """
     Show a custom confirmation dialog that matches the app theme
     
@@ -106,7 +110,6 @@ def show_confirmation_dialog(parent, title: str, message: str) -> bool:
     """
     result = {"confirmed": False}
     
-    # Create dialog window
     dialog = ctk.CTkToplevel(parent)
     dialog.title(title)
     dialog.geometry("500x250")
@@ -114,7 +117,6 @@ def show_confirmation_dialog(parent, title: str, message: str) -> bool:
     dialog.transient(parent)
     dialog.grab_set()
     
-    # Center the dialog
     dialog.update_idletasks()
     width = dialog.winfo_width()
     height = dialog.winfo_height()
@@ -159,10 +161,14 @@ def show_confirmation_dialog(parent, title: str, message: str) -> bool:
     button_frame.pack(fill="x")
     
     def on_yes():
+    
+        print(f"[DEBUG] on_yes called")
         result["confirmed"] = True
         dialog.destroy()
     
     def on_no():
+    
+        print(f"[DEBUG] on_no called")
         result["confirmed"] = False
         dialog.destroy()
     
@@ -203,6 +209,9 @@ def show_confirmation_dialog(parent, title: str, message: str) -> bool:
 
 
 def show_update_dialog(app, new_version):
+
+
+    print(f"[DEBUG] show_update_dialog called")
     """Show integrated update notification window"""
     print(f"\n[DEBUG] ========== UPDATE PROMPT ==========")
     print(f"[DEBUG] Showing update dialog for version: {new_version}")
@@ -273,6 +282,8 @@ def show_update_dialog(app, new_version):
     button_frame.pack(fill="x", pady=(5, 10), padx=10)
     
     def download_update():
+    
+        print(f"[DEBUG] download_update called")
         print(f"[DEBUG] User chose to download update")
         print(f"[DEBUG] Opening GitHub page...")
         webbrowser.open("https://github.com/johanssonserlanderkevin-sys/BeamSkin-Studio")
@@ -280,6 +291,8 @@ def show_update_dialog(app, new_version):
         update_window.destroy()
     
     def skip_update():
+    
+        print(f"[DEBUG] skip_update called")
         print(f"[DEBUG] User declined update")
         update_window.destroy()
     
@@ -314,6 +327,9 @@ def show_update_dialog(app, new_version):
 
 
 def show_wip_warning(app):
+
+
+    print(f"[DEBUG] show_wip_warning called")
     """Show Work-In-Progress warning dialog on first launch"""
     print(f"\n[DEBUG] ========== WIP WARNING CHECK ==========")
     print(f"[DEBUG] first_launch setting: {state.app_settings.get('first_launch', True)}")
@@ -392,6 +408,8 @@ def show_wip_warning(app):
         checkbox.pack(pady=(0, 10))
         
         def on_ok():
+        
+            print(f"[DEBUG] on_ok called")
             print(f"[DEBUG] User clicked 'I Understand'")
             print(f"[DEBUG] Don't show again checkbox: {dont_show_var.get()}")
             if dont_show_var.get():

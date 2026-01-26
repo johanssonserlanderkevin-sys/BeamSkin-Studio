@@ -1,8 +1,5 @@
 """
-BeamSkin Studio - Modern GUI Launcher
-Replaces batch files with a sleek GUI that handles Python installation,
-dependency management, and application startup.
-UPDATED: Uses logo image from gui/Icons folder
+BeamSkin Studio - installer
 """
 import customtkinter as ctk
 from PIL import Image
@@ -14,7 +11,6 @@ import time
 import urllib.request
 import tempfile
 
-# Theme colors - MATCHING MAIN APP (from settings.py dark theme)
 COLORS = {
     "bg": "#0a0a0a",
     "frame_bg": "#141414",
@@ -29,15 +25,17 @@ COLORS = {
     "warning": "#ffa726"
 }
 
+print(f"[DEBUG] Loading class: LauncherWindow")
+
 class LauncherWindow:
     def __init__(self):
+        print(f"[DEBUG] __init__ called")
         self.app = ctk.CTk()
         self.app.title("BeamSkin Studio - Launcher")
         self.app.geometry("700x600")  # Slightly taller for logo
         self.app.resizable(False, False)
         self.app.configure(fg_color=COLORS["bg"])
         
-        # Keep window on top of all others
         self.app.attributes('-topmost', True)
         
         # Load logo
@@ -46,7 +44,6 @@ class LauncherWindow:
         # Center window
         self.center_window()
         
-        # Create UI
         self.create_ui()
         
         # Lift window to front
@@ -81,6 +78,8 @@ class LauncherWindow:
             return None
         
     def center_window(self):
+        
+        print(f"[DEBUG] center_window called")
         """Center the window on screen"""
         self.app.update_idletasks()
         x = (self.app.winfo_screenwidth() // 2) - (700 // 2)
@@ -88,6 +87,8 @@ class LauncherWindow:
         self.app.geometry(f"700x600+{x}+{y}")
     
     def create_ui(self):
+    
+        print(f"[DEBUG] create_ui called")
         """Create the launcher UI"""
         # Main container
         main_frame = ctk.CTkFrame(self.app, fg_color=COLORS["bg"])
@@ -198,6 +199,8 @@ class LauncherWindow:
         ).pack()
         
     def update_status(self, icon, message, detail="", progress=None):
+        
+        print(f"[DEBUG] update_status called")
         """Update the status display"""
         self.status_icon.configure(text=icon)
         self.status_label.configure(text=message, text_color=COLORS["text"])
@@ -207,6 +210,8 @@ class LauncherWindow:
         self.app.update()
         
     def show_error(self, message, detail="", button_text="Close", button_command=None):
+        
+        print(f"[DEBUG] show_error called")
         """Show error state"""
         self.status_icon.configure(text="❌")
         self.status_label.configure(text=message, text_color=COLORS["error"])
@@ -226,6 +231,8 @@ class LauncherWindow:
         self.action_button.pack(pady=10)
         
     def show_success(self, message, detail=""):
+        
+        print(f"[DEBUG] show_success called")
         """Show success state"""
         self.status_icon.configure(text="✅")
         self.status_label.configure(text=message, text_color=COLORS["success"])
@@ -233,6 +240,8 @@ class LauncherWindow:
         self.progress_bar.set(1.0)
         
     def show_choice(self, icon, message, detail, yes_text, no_text, yes_command, no_command):
+        
+        print(f"[DEBUG] show_choice called")
         """Show a choice dialog"""
         self.status_icon.configure(text=icon)
         self.status_label.configure(text=message)
@@ -270,17 +279,26 @@ class LauncherWindow:
         ).pack(side="left", padx=5)
         
     def run(self):
+        
+        print(f"[DEBUG] run called")
         """Start the launcher"""
         self.app.mainloop()
+
+
+print(f"[DEBUG] Loading class: SetupManager")
 
 
 class SetupManager:
     """Handles Python installation and dependency management"""
     
     def __init__(self, launcher):
+    
+        print(f"[DEBUG] __init__ called")
         self.launcher = launcher
         
     def check_python(self):
+        
+        print(f"[DEBUG] check_python called")
         """Check if Python is installed"""
         try:
             result = subprocess.run(
@@ -298,6 +316,8 @@ class SetupManager:
             return False, None
     
     def download_python_installer(self):
+    
+        print(f"[DEBUG] download_python_installer called")
         """Download Python installer for Windows"""
         import webbrowser
         
@@ -319,6 +339,7 @@ class SetupManager:
             
             # Download with progress tracking
             def download_progress(block_num, block_size, total_size):
+                print(f"[DEBUG] download_progress called")
                 downloaded = block_num * block_size
                 if total_size > 0:
                     progress = min(downloaded / total_size, 1.0)
@@ -397,6 +418,8 @@ class SetupManager:
             )
     
     def install_packages(self):
+    
+        print(f"[DEBUG] install_packages called")
         """Install required Python packages"""
         packages = ["pip", "customtkinter", "Pillow", "requests"]
         
@@ -439,7 +462,9 @@ class SetupManager:
             time.sleep(0.2)  # Brief pause for visual feedback
     
     def launch_app(self):
-        """Launch the main application"""
+    
+        print(f"[DEBUG] launch_app called")
+        """Launch the main application via BeamSkin Studio.bat"""
         self.launcher.update_status(
             "🚀",
             "Starting BeamSkin Studio...",
@@ -452,21 +477,33 @@ class SetupManager:
         # Get the parent directory (go up from launchers-scripts to root)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         parent_dir = os.path.dirname(script_dir)
-        main_py_path = os.path.join(parent_dir, "main.py")
+        bat_file_path = os.path.join(parent_dir, "BeamSkin Studio.bat")
         
-        # Launch main app without console window (don't wait for it)
+        # Check if bat file exists
+        if not os.path.exists(bat_file_path):
+            self.launcher.show_error(
+                "File Not Found",
+                f"Could not find 'BeamSkin Studio.bat' in:\n{parent_dir}",
+                "Close",
+                self.launcher.app.quit
+            )
+            return
+        
+        # Launch bat file without console window (don't wait for it)
         if sys.platform == 'win32':
             # Use CREATE_NO_WINDOW flag on Windows and Popen to not wait
             process = subprocess.Popen(
-                ["pythonw", main_py_path],
+                [bat_file_path],
                 cwd=parent_dir,  # Set working directory to parent
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                shell=True
             )
         else:
-            # On other platforms, use regular python
+            # On other platforms, try to run it directly
             process = subprocess.Popen(
-                ["python", main_py_path],
-                cwd=parent_dir  # Set working directory to parent
+                [bat_file_path],
+                cwd=parent_dir,
+                shell=True
             )
         
         # Wait for main app window to appear before closing launcher
@@ -478,11 +515,16 @@ class SetupManager:
 
 
 def main():
+
+
+    print(f"[DEBUG] main called")
     """Main launcher sequence"""
     launcher = LauncherWindow()
     setup = SetupManager(launcher)
     
     def startup_sequence():
+    
+        print(f"[DEBUG] startup_sequence called")
         """Run the startup checks and launch"""
         try:
             # Check Python
@@ -499,6 +541,7 @@ def main():
             if not python_installed:
                 # Download and install Python for user
                 def download_and_install():
+                    print(f"[DEBUG] download_and_install called")
                     setup.download_python_installer()
                 
                 launcher.show_choice(
@@ -529,6 +572,8 @@ def main():
             )
     
     def continue_startup():
+    
+        print(f"[DEBUG] continue_startup called")
         """Continue with package installation and app launch"""
         try:
             # Install/update packages
@@ -550,7 +595,7 @@ def main():
             )
             time.sleep(0.3)
             
-            # Launch app
+            # Launch app via bat file
             setup.launch_app()
             
         except Exception as e:

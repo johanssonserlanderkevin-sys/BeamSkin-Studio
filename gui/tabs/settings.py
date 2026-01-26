@@ -4,9 +4,14 @@ Settings Tab - Theme editor and developer toggles
 from typing import Dict, Tuple, Optional
 import customtkinter as ctk
 from tkinter import messagebox, colorchooser
+import sys
+import os
 from gui.state import state
 from core.settings import reset_theme_colors, update_theme_color, DEFAULT_THEMES
 from utils.debug import toggle_debug_mode
+
+
+print(f"[DEBUG] Loading class: SettingsTab")
 
 
 class SettingsTab(ctk.CTkFrame):
@@ -14,6 +19,8 @@ class SettingsTab(ctk.CTkFrame):
     
     def __init__(self, parent: ctk.CTk, main_container: ctk.CTkFrame, menu_frame: ctk.CTkFrame,
                  menu_buttons: Dict[str, ctk.CTkButton], switch_view_callback):
+    
+        print(f"[DEBUG] __init__ called")
         super().__init__(parent, fg_color=state.colors["app_bg"])
         
         self.main_container = main_container
@@ -50,7 +57,6 @@ class SettingsTab(ctk.CTkFrame):
                 widget = widget.master
             except:
                 break
-        # Fallback - try to get from winfo_toplevel
         try:
             return self.winfo_toplevel()
         except:
@@ -92,10 +98,10 @@ class SettingsTab(ctk.CTkFrame):
         ctk.CTkLabel(theme_frame, text="Theme:", text_color=state.colors["text"]).pack(side="left", padx=(0, 10))
         ctk.CTkLabel(theme_frame, text="Dark Mode", text_color=state.colors["text"]).pack(side="left", padx=(0, 5))
         
-        theme_switch = ctk.CTkSwitch(theme_frame, text="", command=self._toggle_theme, width=50)
+        self.theme_switch = ctk.CTkSwitch(theme_frame, text="", command=self._toggle_theme, width=50)
         if state.current_theme == "light":
-            theme_switch.select()
-        theme_switch.pack(side="left", padx=5)
+            self.theme_switch.select()
+        self.theme_switch.pack(side="left", padx=5)
         ctk.CTkLabel(theme_frame, text="Light Mode", text_color=state.colors["text"]).pack(side="left")
         
         # --- Developer Section ---
@@ -196,7 +202,6 @@ class SettingsTab(ctk.CTkFrame):
         print(f"[DEBUG] root_app is CTk: {isinstance(self.root_app, ctk.CTk)}")
         
         if self.root_app:
-            # Pass a callback that will be called when debug window closes
             toggle_debug_mode(self.root_app, state.colors, on_close=self._on_debug_window_closed)
         else:
             print("[ERROR] Cannot toggle debug mode - no root window found!")
@@ -228,9 +233,122 @@ class SettingsTab(ctk.CTkFrame):
                     self.settings_window_id, width=self.settings_canvas.winfo_width()))
     
     def _toggle_theme(self):
-        """Toggle between light and dark themes"""
-        from core.settings import toggle_theme
-        toggle_theme()
+        """Toggle between light and dark themes with app restart"""
+        print("[DEBUG] _toggle_theme called")
+        
+        # Determine the new theme
+        new_theme = "light" if state.current_theme == "dark" else "dark"
+        
+        # Show themed confirmation dialog
+        from gui.confirmation_dialog import askyesno
+        response = askyesno(
+            self.winfo_toplevel(),
+            "Restart Required",
+            f"Switch to {new_theme.title()} Mode?\n\n"
+            f"The application will restart to apply the theme change.",
+            state.colors,
+            icon="🔄",
+            danger=False
+        )
+        
+        if response:
+            print(f"[DEBUG] User confirmed theme switch to {new_theme}")
+            
+            # Apply the theme change
+            try:
+                from core.settings import toggle_theme
+                toggle_theme(self.root_app)
+                print(f"[DEBUG] Theme setting saved to {new_theme}")
+            except Exception as e:
+                print(f"[ERROR] Failed to toggle theme: {e}")
+                from gui.confirmation_dialog import showerror
+                showerror(
+                    self.winfo_toplevel(),
+                    "Error",
+                    f"Failed to save theme setting:\n{e}",
+                    state.colors
+                )
+                # Revert switch
+                self._revert_theme_switch()
+                return
+            
+            # Restart the application
+            self._restart_application()
+        else:
+            print("[DEBUG] User cancelled theme switch - reverting toggle")
+            # Revert the switch to its previous position
+            self._revert_theme_switch()
+    
+    def _revert_theme_switch(self):
+        """Revert the theme switch to match the current theme"""
+        print(f"[DEBUG] Reverting theme switch to match current theme: {state.current_theme}")
+        if state.current_theme == "light":
+            # Should be selected (on)
+            if not self.theme_switch.get():
+                self.theme_switch.select()
+        else:
+            # Should be deselected (off)
+            if self.theme_switch.get():
+                self.theme_switch.deselect()
+    
+    def _restart_application(self):
+        """Restart the application to apply theme changes"""
+        print("[DEBUG] _restart_application called")
+        
+        try:
+            python = sys.executable
+            
+            if getattr(sys, 'frozen', False):
+                # Running as compiled executable
+                script = sys.executable
+            else:
+                script = os.path.abspath(sys.argv[0])
+            
+            print(f"[DEBUG] Python executable: {python}")
+            print(f"[DEBUG] Script path: {script}")
+            
+            print("[DEBUG] Closing current application window...")
+            if self.root_app:
+                self.root_app.withdraw()  # Hide window first
+                self.root_app.quit()      # Stop mainloop
+            
+            # Start new instance
+            print("[DEBUG] Starting new application instance...")
+            import subprocess
+            
+            if sys.platform == 'win32':
+                if getattr(sys, 'frozen', False):
+                    # Executable
+                    subprocess.Popen([script], creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    # Script - use pythonw to avoid console
+                    pythonw = python.replace('python.exe', 'pythonw.exe')
+                    if os.path.exists(pythonw):
+                        subprocess.Popen([pythonw, script])
+                    else:
+                        subprocess.Popen([python, script], creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                # Linux/Mac
+                subprocess.Popen([python, script])
+            
+            print("[DEBUG] New instance started, exiting current process...")
+            
+            # Force exit
+            sys.exit(0)
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to restart application: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            messagebox.showerror(
+                "Restart Failed",
+                f"Failed to restart the application:\n\n{e}\n\n"
+                f"Please close and restart the application manually to see the theme changes."
+            )
+            
+            if self.root_app:
+                self.root_app.quit()
     
     def _toggle_developer_mode(self):
         """Toggle developer mode and show/hide developer tab"""
@@ -245,21 +363,61 @@ class SettingsTab(ctk.CTkFrame):
             # Create developer tab if it doesn't exist
             if self.developer_tab is None:
                 from gui.tabs.developer import DeveloperTab
-                self.developer_tab = DeveloperTab(self.main_container)
+                
+                # Get notification callback from root app
+                notification_callback = None
+                if self.root_app and hasattr(self.root_app, 'show_notification'):
+                    notification_callback = self.root_app.show_notification
+                    print(f"[DEBUG] Found notification callback from root app")
+                else:
+                    print(f"[DEBUG] Warning: No notification callback found in root app")
+                
+                self.developer_tab = DeveloperTab(self.main_container, notification_callback)
+                print(f"[DEBUG] Developer tab created successfully")
             
-            # Add Developer button to menu
+            # Add Developer button to menu - get current references from topbar
             if "developer" not in self.menu_buttons:
-                dev_button = ctk.CTkButton(
-                    self.menu_frame,
-                    text="Developer",
-                    fg_color="transparent",
-                    text_color=state.colors["text_secondary"],
-                    hover_color=state.colors["card_hover"],
-                    font=ctk.CTkFont(size=12),
-                    command=lambda: self.switch_view_callback("developer")
-                )
-                dev_button.pack(side="left", padx=5)
-                self.menu_buttons["developer"] = dev_button
+                try:
+                    # Get current topbar from root app
+                    current_menu_frame = None
+                    current_menu_buttons = None
+                    
+                    if self.root_app and hasattr(self.root_app, 'topbar'):
+                        current_menu_frame = self.root_app.topbar.menu_frame
+                        current_menu_buttons = self.root_app.topbar.menu_buttons
+                        print(f"[DEBUG] Got current menu_frame and menu_buttons from topbar")
+                    else:
+                        # Fallback to stored references
+                        current_menu_frame = self.menu_frame
+                        current_menu_buttons = self.menu_buttons
+                        print(f"[DEBUG] Using stored menu_frame reference")
+                    
+                    # Verify the menu_frame still exists
+                    if current_menu_frame and current_menu_frame.winfo_exists():
+                        dev_button = ctk.CTkButton(
+                            current_menu_frame,
+                            text="Developer",
+                            fg_color="transparent",
+                            text_color=state.colors["text_secondary"],
+                            hover_color=state.colors["card_hover"],
+                            font=ctk.CTkFont(size=12),
+                            command=lambda: self.switch_view_callback("developer")
+                        )
+                        dev_button.pack(side="left", padx=5)
+                        current_menu_buttons["developer"] = dev_button
+                        
+                        # Update stored reference
+                        self.menu_buttons = current_menu_buttons
+                        print(f"[DEBUG] Developer menu button added successfully")
+                    else:
+                        print(f"[ERROR] menu_frame no longer exists or is invalid")
+                        self.developer_mode_var.set(False)  # Revert the toggle
+                        
+                except Exception as e:
+                    print(f"[ERROR] Failed to add Developer button: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    self.developer_mode_var.set(False)  # Revert the toggle
         else:
             print("[DEBUG] Developer mode disabled")
             
@@ -269,8 +427,15 @@ class SettingsTab(ctk.CTkFrame):
             
             # Remove Developer button from menu
             if "developer" in self.menu_buttons:
-                self.menu_buttons["developer"].destroy()
-                del self.menu_buttons["developer"]
+                try:
+                    self.menu_buttons["developer"].destroy()
+                    del self.menu_buttons["developer"]
+                    print(f"[DEBUG] Developer menu button removed successfully")
+                except Exception as e:
+                    print(f"[ERROR] Failed to remove Developer button: {e}")
+                    # Still remove from dict even if destroy failed
+                    if "developer" in self.menu_buttons:
+                        del self.menu_buttons["developer"]
     
     def _toggle_dark_theme_editor(self):
         """Toggle dark theme editor visibility"""
@@ -362,6 +527,7 @@ class SettingsTab(ctk.CTkFrame):
         
         # Live preview update
         def update_preview(event=None):
+            print(f"[DEBUG] update_preview called")
             color = entry.get().strip()
             if color.startswith('#') and len(color) in [4, 7]:
                 try:
@@ -373,6 +539,7 @@ class SettingsTab(ctk.CTkFrame):
         
         # Color picker button
         def pick_color():
+            print(f"[DEBUG] pick_color called")
             color = colorchooser.askcolor(
                 color=current_color,
                 title=f"Choose {state.color_labels[color_key]}"

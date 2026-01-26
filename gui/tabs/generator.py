@@ -1,9 +1,5 @@
 """
-Generator Tab - COMPLETE IMPLEMENTATION
-Fully migrated from app.py with all project management functionality
-Lines migrated: 848-2188 from app_backup.py
-FIXED: Project loading now updates sidebar ZIP name and author fields
-FIXED: Add Skin button now works properly (line 429 was broken)
+Generator Tab
 """
 from typing import Dict, List, Optional, Any, Callable
 import customtkinter as ctk
@@ -15,19 +11,31 @@ import os
 
 from gui.state import state
 
-# Import file operations
+try:
+    from utils.file_ops import load_added_vehicles_json
+except ImportError:
+    print("[WARNING] load_added_vehicles_json not found in file_ops")
+    def load_added_vehicles_json():
+        return {}
+
 try:
     from core.file_ops import generate_multi_skin_mod
 except ImportError:
     print("[WARNING] generate_multi_skin_mod not found, using fallback")
     def generate_multi_skin_mod(*args, **kwargs):
+        print(f"[DEBUG] generate_multi_skin_mod called")
         messagebox.showerror("Error", "generate_multi_skin_mod function not available")
+
+
+print(f"[DEBUG] Loading class: GeneratorTab")
 
 
 class GeneratorTab(ctk.CTkFrame):
     """Complete generator tab - fully functional project creation and mod generation"""
     
     def __init__(self, parent: ctk.CTk, notification_callback: Callable[[str, str, int], None] = None):
+    
+        print(f"[DEBUG] __init__ called")
         super().__init__(parent, fg_color=state.colors["app_bg"])
         
         # Callback for notifications (passed from main window)
@@ -45,24 +53,41 @@ class GeneratorTab(ctk.CTkFrame):
         self.dds_preview_label: Optional[ctk.CTkLabel] = None
         self.progress_bar: Optional[ctk.CTkProgressBar] = None
         self.export_status_label: Optional[ctk.CTkLabel] = None
-        self.skin_name_entry: Optional[ctk.CTkEntry] = None  # Store reference to skin name entry
+        self.skin_name_entry: Optional[ctk.CTkEntry] = None
+        self.jpg_file_entry: Optional[ctk.CTkEntry] = None
+        self.config_name_entry: Optional[ctk.CTkEntry] = None
         
         # Variables
         self.skin_name_var = ctk.StringVar()
         self.dds_path_var = ctk.StringVar()
         self.project_search_var = ctk.StringVar()
         
-        # Project data structure (matches old app.py format exactly)
+        # Config data variables
+        self.add_config_data_var = ctk.BooleanVar(value=False)
+        self.config_type_var = ctk.StringVar(value="Factory")
+        self.config_name_var = ctk.StringVar()
+        self.pc_file_path_var = ctk.StringVar()
+        self.jpg_file_path_var = ctk.StringVar()
+        
+        # Load config types from file
+        try:
+            from utils.config_helper import load_config_types
+            self.config_types = load_config_types()
+        except ImportError:
+            self.config_types = ["Factory", "Custom", "Police"]
+            print("[DEBUG] Using default config types")
+        
+        # Project data structure
         self.project_data = {
             "mod_name": "",
             "author": "",
-            "cars": {}  # {car_id: {"base_carid": str, "skins": [], "temp_skin_name": "", "temp_dds_path": ""}}
+            "cars": {}
         }
         
         # Selected car for adding skins
         self.selected_car_for_skin: Optional[str] = None
         
-        # Car ID list (for lookups)
+        # Car ID list
         self.car_id_list = self._build_car_id_list()
         
         # Setup UI
@@ -71,6 +96,8 @@ class GeneratorTab(ctk.CTkFrame):
         self.refresh_project_display()
     
     def set_sidebar_references(self, mod_name_entry, author_entry):
+    
+        print(f"[DEBUG] set_sidebar_references called")
         """Called by main window to provide sidebar entry references"""
         self.mod_name_entry_sidebar = mod_name_entry
         self.author_entry_sidebar = author_entry
@@ -80,35 +107,57 @@ class GeneratorTab(ctk.CTkFrame):
         print(f"[{type.upper()}] {message}")
     
     def _build_car_id_list(self) -> List:
-        """Build the car ID list from VEHICLE_IDS"""
+        """Build the car ID list from VEHICLE_IDS - sorted alphabetically by car name"""
         car_list = []
         
-        # Add all vehicles from VEHICLE_IDS
-        for carid, carname in state.vehicle_ids.items():
-            car_list.append((carid, carname))
+        # Reload from JSON file to get latest vehicles
+        vehicles = load_added_vehicles_json()
+        state.added_vehicles.clear()
+        state.added_vehicles.update(vehicles)
         
-        # Add developer-added vehicles
+        # Add all built-in vehicles
+        for carid, carname in state.vehicle_ids.items():
+            # Skip if it's a custom vehicle (will be added from added_vehicles)
+            if carid not in state.added_vehicles:
+                car_list.append((carid, carname))
+        
+        # Add custom vehicles
         for carid, carname in state.added_vehicles.items():
             car_list.append((carid, carname))
         
+        # Sort alphabetically by car name (case-insensitive)
         return sorted(car_list, key=lambda x: x[1].lower())
     
+    def refresh_vehicle_list(self):
+        """Refresh the vehicle list when new vehicles are added"""
+        print(f"[DEBUG] refresh_vehicle_list called")
+        print(f"[DEBUG] Rebuilding car ID list from added_vehicles.json...")
+        
+        # Rebuild the car list (this will reload from JSON)
+        self.car_id_list = self._build_car_id_list()
+        
+        print(f"[DEBUG] Car list now has {len(self.car_id_list)} vehicles")
+        print(f"[DEBUG] Custom vehicles in state: {len(state.added_vehicles)}")
+        
+        # Refresh the project display to update any car names
+        self.refresh_project_display()
+        
+        print(f"[DEBUG] Vehicle list refresh complete")
+    
     def get_real_value(self, entry: ctk.CTkEntry, placeholder: str) -> str:
+    
+        print(f"[DEBUG] get_real_value called")
         """Get real value from entry (not placeholder)"""
         if entry is None:
             return ""
         value = entry.get()
         return "" if value == placeholder else value
     
-    # ==================== UI SETUP ====================
-    
     def _setup_ui(self):
         """Set up the complete generator tab UI"""
-        # Main container (NOT scrollable - only the vehicles section scrolls)
-        self.generator_scroll = ctk.CTkFrame(self, fg_color="transparent")
+        self.generator_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.generator_scroll.pack(fill="both", expand=True, padx=0, pady=0)
         
-        # ===== PROJECT OVERVIEW SECTION =====
         section_header = ctk.CTkFrame(self.generator_scroll, fg_color="transparent", height=60)
         section_header.pack(fill="x", padx=20, pady=(15, 10))
         section_header.pack_propagate(False)
@@ -120,15 +169,13 @@ class GeneratorTab(ctk.CTkFrame):
             text_color=state.colors["text"]
         ).pack(side="left", anchor="w")
         
-        # Project controls
         project_controls = ctk.CTkFrame(section_header, fg_color="transparent")
         project_controls.pack(side="right")
         
         self._create_button(project_controls, "💾 Save Project", self.save_project, "primary", 130, 32).pack(side="left", padx=3)
-        self._create_button(project_controls, "📁 Load Project", self.load_project, "primary", 130, 32).pack(side="left", padx=3)
+        self._create_button(project_controls, "📂 Load Project", self.load_project, "primary", 130, 32).pack(side="left", padx=3)
         self._create_button(project_controls, "Clear", self.clear_project, "danger", 100, 32).pack(side="left", padx=3)
         
-        # Vehicles in project label
         ctk.CTkLabel(
             self.generator_scroll,
             text="Vehicles in project",
@@ -136,7 +183,6 @@ class GeneratorTab(ctk.CTkFrame):
             text_color=state.colors["text"]
         ).pack(anchor="w", padx=10, pady=(10, 5))
         
-        # Project search
         project_search_frame = ctk.CTkFrame(self.generator_scroll, fg_color="transparent")
         project_search_frame.pack(fill="x", padx=10, pady=(0, 5))
         
@@ -152,20 +198,16 @@ class GeneratorTab(ctk.CTkFrame):
         self.project_search_entry.pack(fill="x")
         self._setup_placeholder(self.project_search_entry, "🔍 Search cars...")
         
-        # Project overview container (scrollable, fixed height for 2 rows of cars)
-        # Each car card is roughly 80-100px tall, so 2 rows = ~200px
-        project_overview_container = ctk.CTkScrollableFrame(
+        self.project_overview_container = ctk.CTkScrollableFrame(
             self.generator_scroll,
-            height=200,
             corner_radius=12,
             fg_color=state.colors["frame_bg"]
         )
-        project_overview_container.pack(fill="x", padx=10, pady=(0, 10))
+        self.project_overview_container.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
-        self.project_overview_frame = ctk.CTkFrame(project_overview_container, fg_color="transparent")
+        self.project_overview_frame = ctk.CTkFrame(self.project_overview_container, fg_color="transparent")
         self.project_overview_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        # Current car label (shows which car is selected for adding skins)
         self.current_car_label = ctk.CTkLabel(
             self.generator_scroll,
             text="",
@@ -173,7 +215,6 @@ class GeneratorTab(ctk.CTkFrame):
             text_color=state.colors["accent"]
         )
         
-        # ===== ADD SKINS SECTION =====
         ctk.CTkLabel(
             self.generator_scroll,
             text="Add Skins to Selected Car",
@@ -181,42 +222,204 @@ class GeneratorTab(ctk.CTkFrame):
             text_color=state.colors["text"]
         ).pack(anchor="w", padx=20, pady=(20, 10))
         
-        # Skin card
         skin_card = self._create_card(self.generator_scroll)
         skin_card.pack(fill="x", padx=20, pady=(0, 15))
         
-        # Skin name
+        header_row = ctk.CTkFrame(skin_card, fg_color="transparent")
+        header_row.pack(fill="x", padx=15, pady=(15, 5))
+        
         ctk.CTkLabel(
-            skin_card,
+            header_row,
             text="Skin Name",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=state.colors["text"]
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).pack(side="left", anchor="w")
+        
+        config_corner = ctk.CTkFrame(header_row, fg_color="transparent")
+        config_corner.pack(side="right", anchor="e")
+        
+        config_toggle_row = ctk.CTkFrame(config_corner, fg_color="transparent")
+        config_toggle_row.pack(anchor="e")
+        
+        ctk.CTkLabel(
+            config_toggle_row,
+            text="Add Config Data",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=state.colors["text"]
+        ).pack(side="left", padx=(200, 8))
+        
+        config_toggle = ctk.CTkSwitch(
+            config_toggle_row,
+            text="",
+            variable=self.add_config_data_var,
+            command=self._toggle_config_data,
+            onvalue=True,
+            offvalue=False,
+            fg_color="#3A3A3A",
+            progress_color=state.colors["accent"],
+            button_color=state.colors["card_bg"],
+            button_hover_color=state.colors["card_hover"]
+        )
+        config_toggle.pack(side="right")
+        
+        entry_row = ctk.CTkFrame(skin_card, fg_color="transparent")
+        entry_row.pack(fill="x", padx=15, pady=(0, 10))
         
         self.skin_name_entry = ctk.CTkEntry(
-            skin_card,
+            entry_row,
             textvariable=self.skin_name_var,
+            height=36,
+            width=300,
+            fg_color=state.colors["frame_bg"],
+            border_color=state.colors["border"],
+            text_color=state.colors["text"]
+        )
+        self.skin_name_entry.pack(side="left", padx=(0, 10))
+        self._setup_placeholder(self.skin_name_entry, "Enter skin name...")
+        
+        # Configuration Name field - positioned between Skin Name and Config Type on same row
+        self.config_name_label = ctk.CTkLabel(
+            entry_row,
+            text="Config name:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=state.colors["text"]
+        )
+        self.config_name_entry = ctk.CTkEntry(
+            entry_row,
+            textvariable=self.config_name_var,
+            height=36,
+            width=300,
+            fg_color=state.colors["frame_bg"],
+            border_color=state.colors["border"],
+            text_color=state.colors["text"]
+        )
+        self._setup_placeholder(self.config_name_entry, "Enter configuration name...")
+        
+        self.config_type_entry_row = ctk.CTkFrame(entry_row, fg_color="transparent")
+        
+        ctk.CTkLabel(
+            self.config_type_entry_row,
+            text="Type:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=state.colors["text"]
+        ).pack(side="left", padx=(0, 8))
+        
+        self.config_type_dropdown_inline = ctk.CTkOptionMenu(
+            self.config_type_entry_row,
+            variable=self.config_type_var,
+            values=self.config_types,
+            width=140,
+            height=36,
+            fg_color=state.colors["frame_bg"],
+            button_color=state.colors["accent"],
+            button_hover_color=state.colors["accent_hover"],
+            text_color=state.colors["text"],
+            dropdown_fg_color=state.colors["card_bg"],
+            dropdown_hover_color=state.colors["card_hover"],
+            dropdown_text_color=state.colors["text"]
+        )
+        self.config_type_dropdown_inline.pack(side="left")
+        
+# Configuration files section - .pc and .jpg side by side
+        self.config_files_container = ctk.CTkFrame(skin_card, fg_color="transparent")
+        
+        # Single row for both files
+        config_files_row = ctk.CTkFrame(self.config_files_container, fg_color="transparent")
+        config_files_row.pack(fill="x", padx=15, pady=(0, 10))
+        
+        # Left side - .pc file
+        pc_file_column = ctk.CTkFrame(config_files_row, fg_color="transparent")
+        pc_file_column.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        
+        ctk.CTkLabel(
+            pc_file_column,
+            text=".pc File (Vehicle Config)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=state.colors["text"]
+        ).pack(anchor="w", pady=(0, 3))
+        
+        pc_input_row = ctk.CTkFrame(pc_file_column, fg_color="transparent")
+        pc_input_row.pack(fill="x")
+        
+        self.pc_file_entry = ctk.CTkEntry(
+            pc_input_row,
+            textvariable=self.pc_file_path_var,
+            state="readonly",
             height=36,
             fg_color=state.colors["frame_bg"],
             border_color=state.colors["border"],
             text_color=state.colors["text"]
         )
-        self.skin_name_entry.pack(fill="x", padx=15, pady=(0, 10))
-        self._setup_placeholder(self.skin_name_entry, "Enter skin name...")
+        self.pc_file_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self._setup_placeholder(self.pc_file_entry, "No .pc file selected...")
         
-        # DDS file
+        pc_browse_btn = ctk.CTkButton(
+            pc_input_row,
+            text="📁 Browse",
+            command=self._browse_pc_file,
+            width=100,
+            height=36,
+            fg_color=state.colors["card_bg"],
+            hover_color=state.colors["card_hover"],
+            text_color=state.colors["text"],
+            font=ctk.CTkFont(size=11, weight="bold"),
+            corner_radius=8
+        )
+        pc_browse_btn.pack(side="right")
+        
+        # Right side - .jpg file
+        jpg_file_column = ctk.CTkFrame(config_files_row, fg_color="transparent")
+        jpg_file_column.pack(side="right", fill="both", expand=True, padx=(10, 0))
+        
         ctk.CTkLabel(
+            jpg_file_column,
+            text=".jpg File (Config Icon)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=state.colors["text"]
+        ).pack(anchor="w", pady=(0, 3))
+        
+        jpg_input_row = ctk.CTkFrame(jpg_file_column, fg_color="transparent")
+        jpg_input_row.pack(fill="x")
+        
+        self.jpg_file_entry = ctk.CTkEntry(
+            jpg_input_row,
+            textvariable=self.jpg_file_path_var,
+            state="readonly",
+            height=36,
+            fg_color=state.colors["frame_bg"],
+            border_color=state.colors["border"],
+            text_color=state.colors["text"]
+        )
+        self.jpg_file_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self._setup_placeholder(self.jpg_file_entry, "No .jpg file selected...")
+        
+        jpg_browse_btn = ctk.CTkButton(
+            jpg_input_row,
+            text="📁 Browse",
+            command=self._browse_jpg_file,
+            width=100,
+            height=36,
+            fg_color=state.colors["card_bg"],
+            hover_color=state.colors["card_hover"],
+            text_color=state.colors["text"],
+            font=ctk.CTkFont(size=11, weight="bold"),
+            corner_radius=8
+        )
+        jpg_browse_btn.pack(side="right")
+        
+        self.dds_texture_label = ctk.CTkLabel(
             skin_card,
             text="DDS Texture",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=state.colors["text"]
-        ).pack(anchor="w", padx=15, pady=(5, 5))
+        )
+        self.dds_texture_label.pack(anchor="w", padx=15, pady=(10, 5))
         
-        dds_frame = ctk.CTkFrame(skin_card, fg_color="transparent")
-        dds_frame.pack(fill="x", padx=15, pady=(0, 10))
+        dds_row = ctk.CTkFrame(skin_card, fg_color="transparent")
+        dds_row.pack(fill="x", padx=15, pady=(0, 10))
         
         dds_entry = ctk.CTkEntry(
-            dds_frame,
+            dds_row,
             textvariable=self.dds_path_var,
             state="readonly",
             height=36,
@@ -224,11 +427,11 @@ class GeneratorTab(ctk.CTkFrame):
             border_color=state.colors["border"],
             text_color=state.colors["text"]
         )
-        dds_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        dds_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self._setup_placeholder(dds_entry, "No file selected...")
         
         dds_browse = ctk.CTkButton(
-            dds_frame,
+            dds_row,
             text="📁 Browse",
             command=self.browse_dds,
             width=100,
@@ -241,7 +444,6 @@ class GeneratorTab(ctk.CTkFrame):
         )
         dds_browse.pack(side="right")
         
-        # DDS preview
         self.dds_preview_label = ctk.CTkLabel(
             skin_card,
             text="",
@@ -249,9 +451,8 @@ class GeneratorTab(ctk.CTkFrame):
             width=600,
             height=300
         )
-        self.dds_preview_label.pack(padx=15, pady=(0, 10))
+        self.dds_preview_label.pack(padx=15, pady=(10, 10))
         
-        # Add skin button
         add_skin_btn = ctk.CTkButton(
             skin_card,
             text="➕ Add Skin",
@@ -265,7 +466,6 @@ class GeneratorTab(ctk.CTkFrame):
         )
         add_skin_btn.pack(fill="x", padx=15, pady=(5, 15))
         
-        # Export status label
         self.export_status_label = ctk.CTkLabel(
             self.generator_scroll,
             text="",
@@ -273,7 +473,6 @@ class GeneratorTab(ctk.CTkFrame):
             text_color=state.colors["text_secondary"]
         )
         
-        # Progress bar
         self.progress_bar = ctk.CTkProgressBar(
             self.generator_scroll,
             height=8,
@@ -328,11 +527,15 @@ class GeneratorTab(ctk.CTkFrame):
             entry.configure(text_color="#888888")
         
         def on_focus_in(event):
+        
+            print(f"[DEBUG] on_focus_in called")
             if entry.get() == placeholder:
                 entry.delete(0, "end")
                 entry.configure(text_color=state.colors["text"])
         
         def on_focus_out(event):
+        
+            print(f"[DEBUG] on_focus_out called")
             if not entry.get():
                 entry.insert(0, placeholder)
                 entry.configure(text_color="#888888")
@@ -344,35 +547,25 @@ class GeneratorTab(ctk.CTkFrame):
         """Bind search functionality"""
         self.project_search_var.trace_add("write", lambda *args: self.refresh_project_display())
     
-    # ==================== PROJECT MANAGEMENT ====================
-    
     def add_car_to_project(self, carid: str, display_name: str):
-        """Add a car to the project
-        
-        Args:
-            carid: Vehicle ID (e.g., "etk800")
-            display_name: Display name (e.g., "ETK 800 Series")
-        """
+    
+        print(f"[DEBUG] add_car_to_project called")
+        """Add a car to the project"""
         print(f"[DEBUG] Adding car to project: {display_name} ({carid})")
         
-        # Check if this car is already in the project (prevent duplicates)
         if carid in self.project_data["cars"]:
             self.show_notification(f"{display_name} is already in the project", "warning")
-            # Select the existing car instead
             self.selected_car_for_skin = carid
             self.refresh_project_display()
             return
         
-        # Check if any instance of this car exists
         for car_id in self.project_data["cars"].keys():
             if car_id.startswith(f"{carid}_"):
                 self.show_notification(f"{display_name} is already in the project", "warning")
-                # Select the first instance
                 self.selected_car_for_skin = carid if carid in self.project_data["cars"] else car_id
                 self.refresh_project_display()
                 return
         
-        # First instance of this car - add it
         self.project_data["cars"][carid] = {
             "base_carid": carid,
             "skins": [],
@@ -380,32 +573,32 @@ class GeneratorTab(ctk.CTkFrame):
             "temp_dds_path": ""
         }
         
-        # Select this car
         self.selected_car_for_skin = carid
         self.show_notification(f"Added {display_name} to project", "success")
         
         print(f"[DEBUG] Selected car for skins: {self.selected_car_for_skin}")
         
-        # Refresh display
         self.refresh_project_display()
     
     def remove_car_from_project(self, car_instance_id: str):
+    
+        print(f"[DEBUG] remove_car_from_project called")
         """Remove a car instance from the project"""
         if car_instance_id in self.project_data["cars"]:
             base_carid = self.project_data["cars"][car_instance_id].get("base_carid", car_instance_id)
             del self.project_data["cars"][car_instance_id]
             
-            # If this was the selected car, clear selection
             if self.selected_car_for_skin == car_instance_id:
                 self.selected_car_for_skin = None
             
             car_name = state.vehicle_ids.get(base_carid, base_carid)
             self.show_notification(f"Removed {car_name}", "info")
             
-            # Refresh display
             self.refresh_project_display()
     
     def select_car_for_skin(self, car_instance_id: str):
+    
+        print(f"[DEBUG] select_car_for_skin called")
         """Select a car to add skins to"""
         if car_instance_id in self.project_data["cars"]:
             self.selected_car_for_skin = car_instance_id
@@ -413,19 +606,16 @@ class GeneratorTab(ctk.CTkFrame):
             self.refresh_project_display()
     
     def add_skin_to_selected_car(self):
+    
+        print(f"[DEBUG] add_skin_to_selected_car called")
         """Add a skin to the currently selected car"""
-        # Check if car is selected
         if not self.selected_car_for_skin:
             self.show_notification("Please select a car first", "warning")
             return
         
-        # Get skin name - FIXED: Simply use the StringVar instead of complex widget traversal
         skin_name = self.skin_name_var.get().strip()
-        
-        # Get DDS path
         dds_path = self.dds_path_var.get().strip()
         
-        # Validation
         if not skin_name or skin_name == "Enter skin name...":
             self.show_notification("Please enter a skin name", "warning")
             return
@@ -438,34 +628,170 @@ class GeneratorTab(ctk.CTkFrame):
             self.show_notification("DDS file does not exist", "error")
             return
         
-        # Add skin to selected car
         skin_data = {
             "name": skin_name,
             "dds_path": dds_path
         }
         
-        self.project_data["cars"][self.selected_car_for_skin]["skins"].append(skin_data)
+        if self.add_config_data_var.get():
+            config_type = self.config_type_var.get()
+            config_name = self.config_name_var.get().strip()
+            pc_path = self.pc_file_path_var.get().strip()
+            jpg_path = self.jpg_file_path_var.get().strip()
+            
+            if not config_name or config_name == "Enter configuration name...":
+                self.show_notification("Please enter a configuration name", "warning")
+                return
+            
+            if not pc_path or pc_path == "No .pc file selected...":
+                self.show_notification("Please select a .pc file for config data", "warning")
+                return
+            
+            if not jpg_path or jpg_path == "No .jpg file selected...":
+                self.show_notification("Please select a .jpg file for config data", "warning")
+                return
+            
+            if not os.path.exists(pc_path):
+                self.show_notification(".pc file does not exist", "error")
+                return
+            
+            if not os.path.exists(jpg_path):
+                self.show_notification(".jpg file does not exist", "error")
+                return
+            
+            skin_data["config_data"] = {
+                "config_type": config_type,
+                "config_name": config_name,
+                "pc_path": pc_path,
+                "jpg_path": jpg_path
+            }
+            print(f"[DEBUG] Adding skin with config data: Type={config_type}, Name={config_name}")
         
-        # Clear inputs and preview
+        self.project_data["cars"][self.selected_car_for_skin]["skins"].append(skin_data)
+        print(f"[DEBUG] Added skin '{skin_name}'. Total skins: {len(self.project_data['cars'][self.selected_car_for_skin]['skins'])}")
+        
         self.skin_name_var.set("")
         self.dds_path_var.set("")
+        self.config_name_var.set("")
+        self.pc_file_path_var.set("")
+        self.jpg_file_path_var.set("")
         
-        # IMPORTANT: Clear the preview image completely
-        self.dds_preview_label.configure(image=None, text="")
-        # Remove the stored image reference to free memory
-        if hasattr(self.dds_preview_label, 'image'):
-            delattr(self.dds_preview_label, 'image')
+        try:
+            if hasattr(self, 'dds_preview_label') and self.dds_preview_label:
+                if hasattr(self.dds_preview_label, 'image'):
+                    self.dds_preview_label.image = None
+                try:
+                    self.dds_preview_label.configure(image=None, text="")
+                except:
+                    pass
+                print(f"[DEBUG] DDS preview cleared")
+        except Exception as e:
+            print(f"[DEBUG] Error with preview (non-critical, skipping): {e}")
         
-        # Reset placeholder for skin name entry
-        if self.skin_name_entry:
-            self.skin_name_entry.delete(0, "end")
-            self.skin_name_entry.insert(0, "Enter skin name...")
-            self.skin_name_entry.configure(text_color="#888888")
+        try:
+            if self.skin_name_entry:
+                self.skin_name_entry.master.focus()
+                self.skin_name_entry.delete(0, "end")
+                self.skin_name_entry.insert(0, "Enter skin name...")
+                self.skin_name_entry.configure(text_color="#888888")
+                if hasattr(self.skin_name_entry, '_placeholder'):
+                    self.skin_name_entry.event_generate("<FocusOut>")
+                print(f"[DEBUG] Skin name entry reset with placeholder")
+        except Exception as e:
+            print(f"[DEBUG] Error resetting skin name: {e}")
+        
+        try:
+            if self.config_name_entry:
+                self.config_name_entry.delete(0, "end")
+                self.config_name_entry.insert(0, "Enter configuration name...")
+                self.config_name_entry.configure(text_color="#888888")
+        except Exception as e:
+            print(f"[DEBUG] Error resetting config name: {e}")
+        
+        try:
+            if self.pc_file_entry:
+                self.pc_file_entry.configure(state="normal")
+                self.pc_file_entry.delete(0, "end")
+                self.pc_file_entry.insert(0, "No .pc file selected...")
+                self.pc_file_entry.configure(text_color="#888888", state="readonly")
+        except Exception as e:
+            print(f"[DEBUG] Error resetting pc entry: {e}")
+        
+        try:
+            if self.jpg_file_entry:
+                self.jpg_file_entry.configure(state="normal")
+                self.jpg_file_entry.delete(0, "end")
+                self.jpg_file_entry.insert(0, "No .jpg file selected...")
+                self.jpg_file_entry.configure(text_color="#888888", state="readonly")
+        except Exception as e:
+            print(f"[DEBUG] Error resetting jpg entry: {e}")
         
         self.show_notification(f"Added skin '{skin_name}'", "success")
+        
+        print(f"[DEBUG] Starting deselect/reselect refresh...")
+        
+        current = self.selected_car_for_skin
+        print(f"[DEBUG] Current selection: {current}")
+        
+        self.selected_car_for_skin = None
+        print(f"[DEBUG] Deselected - calling refresh...")
         self.refresh_project_display()
+        
+        self.update_idletasks()
+        print(f"[DEBUG] Deselect refresh complete")
+        
+        print(f"[DEBUG] Scheduling reselect in 50ms...")
+        self.after(50, lambda: self._reselect_car(current))
+        
+        print(f"[DEBUG] Skin addition complete!")
+    
+    def _force_scrollable_reflow(self):
+        """Force the scrollable container to recalculate and redraw"""
+        try:
+            canvas = self.project_overview_container._parent_canvas
+            canvas.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.event_generate("<Configure>")
+            print(f"[DEBUG] Scrollable reflow executed successfully")
+        except Exception as e:
+            print(f"[DEBUG] Scrollable reflow error (non-critical): {e}")
+    
+    def _reselect_car(self, car_id):
+        """Re-select a car after a forced refresh"""
+        self.selected_car_for_skin = car_id
+        self.refresh_project_display()
+        
+        try:
+            if hasattr(self, 'project_overview_frame') and self.project_overview_frame:
+                for widget in self.project_overview_frame.winfo_children():
+                    widget.update()
+                self.project_overview_frame.update()
+                
+            if hasattr(self, 'project_overview_container') and self.project_overview_container:
+                self.project_overview_container.update()
+                
+            self.update()
+            
+            print(f"[DEBUG] Car reselected with forced updates: {car_id}")
+        except Exception as e:
+            print(f"[DEBUG] Update error (non-critical): {e}")
+    
+    def _update_scroll_region(self):
+        """Helper method to update the scroll region of the project overview frame"""
+        if hasattr(self, 'project_overview_frame') and self.project_overview_frame:
+            try:
+                self.project_overview_frame.update_idletasks()
+                if hasattr(self.project_overview_frame, '_parent_canvas'):
+                    canvas = self.project_overview_frame._parent_canvas
+                    canvas.configure(scrollregion=canvas.bbox("all"))
+                    canvas.update()
+                    print("[DEBUG] Scroll region updated successfully")
+            except Exception as e:
+                print(f"[DEBUG] Error updating scroll region: {e}")
     
     def remove_skin_from_car(self, car_instance_id: str, skin_index: int):
+    
+        print(f"[DEBUG] remove_skin_from_car called")
         """Remove a skin from a car"""
         if car_instance_id in self.project_data["cars"]:
             skins = self.project_data["cars"][car_instance_id]["skins"]
@@ -474,8 +800,14 @@ class GeneratorTab(ctk.CTkFrame):
                 del skins[skin_index]
                 self.show_notification(f"Removed skin '{skin_name}'", "info")
                 self.refresh_project_display()
+                self.update_idletasks()
+                if hasattr(self, 'project_overview_frame') and self.project_overview_frame:
+                    self.project_overview_frame.update_idletasks()
+                    self.after(10, self._update_scroll_region)
     
     def browse_dds(self):
+    
+        print(f"[DEBUG] browse_dds called")
         """Browse for DDS file"""
         filename = filedialog.askopenfilename(
             title="Select DDS Texture",
@@ -485,38 +817,137 @@ class GeneratorTab(ctk.CTkFrame):
         if filename:
             self.dds_path_var.set(filename)
             
-            # Try to load preview
             try:
                 img = Image.open(filename)
                 img.thumbnail((400, 400), Image.Resampling.LANCZOS)
                 photo = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-                self.dds_preview_label.configure(image=photo, text="")
+                
+                try:
+                    self.dds_preview_label.configure(image=None, text="")
+                except:
+                    pass
+                
                 self.dds_preview_label.image = photo
+                
+                try:
+                    self.dds_preview_label.configure(image=photo)
+                except:
+                    pass
+                
+                print(f"[DEBUG] DDS preview loaded: {filename}")
             except Exception as e:
                 print(f"[DEBUG] Could not load DDS preview: {e}")
-                self.dds_preview_label.configure(image=None, text="Preview unavailable")
+                try:
+                    if hasattr(self, 'dds_preview_label') and self.dds_preview_label:
+                        self.dds_preview_label.image = None
+                        self.dds_preview_label.configure(text="Preview unavailable")
+                except:
+                    pass
+    
+    def _toggle_config_data(self):
+        """Toggle visibility of config data section"""
+        if self.add_config_data_var.get():
+            # Show config name label and field (between skin name and config type)
+            self.config_name_label.pack(side="left", padx=(0, 8), after=self.skin_name_entry)
+            self.config_name_entry.pack(side="left", padx=(0, 10), after=self.config_name_label)
+            
+            # Show config type dropdown (after config name)
+            self.config_type_entry_row.pack(side="left")
+            
+            # Show config files container (.pc and .jpg files)
+            self.config_files_container.pack(fill="x", pady=(0, 10), before=self.dds_texture_label)
+            
+            print("[DEBUG] Config data section shown")
+        else:
+            # Hide all config sections
+            self.config_name_label.pack_forget()
+            self.config_name_entry.pack_forget()
+            self.config_type_entry_row.pack_forget()
+            self.config_files_container.pack_forget()
+            
+            print("[DEBUG] Config data section hidden")
+    
+    def _browse_pc_file(self):
+        """Browse for .pc file in BeamNG vehicles folder"""
+        try:
+            from utils.config_helper import get_beamng_vehicles_path
+            vehicles_path = get_beamng_vehicles_path()
+        except ImportError:
+            import getpass
+            username = getpass.getuser()
+            vehicles_path = os.path.join(
+                "C:\\Users", username, "AppData", "Local", "BeamNG",
+                "BeamNG.drive", "current", "vehicles"
+            )
+        
+        initial_dir = vehicles_path
+        if self.selected_car_for_skin and self.selected_car_for_skin in self.project_data["cars"]:
+            base_carid = self.project_data["cars"][self.selected_car_for_skin].get("base_carid")
+            if base_carid:
+                car_folder = os.path.join(vehicles_path, base_carid)
+                if os.path.exists(car_folder):
+                    initial_dir = car_folder
+        
+        filename = filedialog.askopenfilename(
+            title="Select .pc File (Vehicle Config)",
+            initialdir=initial_dir,
+            filetypes=[("PC files", "*.pc"), ("All files", "*.*")]
+        )
+        
+        if filename:
+            self.pc_file_path_var.set(filename)
+            print(f"[DEBUG] Selected .pc file: {filename}")
+    
+    def _browse_jpg_file(self):
+        """Browse for .jpg file in BeamNG vehicles folder"""
+        try:
+            from utils.config_helper import get_beamng_vehicles_path
+            vehicles_path = get_beamng_vehicles_path()
+        except ImportError:
+            import getpass
+            username = getpass.getuser()
+            vehicles_path = os.path.join(
+                "C:\\Users", username, "AppData", "Local", "BeamNG",
+                "BeamNG.drive", "current", "vehicles"
+            )
+        
+        initial_dir = vehicles_path
+        if self.selected_car_for_skin and self.selected_car_for_skin in self.project_data["cars"]:
+            base_carid = self.project_data["cars"][self.selected_car_for_skin].get("base_carid")
+            if base_carid:
+                car_folder = os.path.join(vehicles_path, base_carid)
+                if os.path.exists(car_folder):
+                    initial_dir = car_folder
+        
+        filename = filedialog.askopenfilename(
+            title="Select .jpg File (Config Icon)",
+            initialdir=initial_dir,
+            filetypes=[("JPG files", "*.jpg"), ("JPEG files", "*.jpeg"), ("All files", "*.*")]
+        )
+        
+        if filename:
+            self.jpg_file_path_var.set(filename)
+            print(f"[DEBUG] Selected .jpg file: {filename}")
     
     def save_project(self):
+    
+        print(f"[DEBUG] save_project called")
         """Save current project to file"""
         if not self.project_data["cars"]:
             self.show_notification("No cars in project to save", "warning")
             return
         
-        # Get mod name from sidebar
         mod_name = ""
         if self.mod_name_entry_sidebar:
             mod_name = self.get_real_value(self.mod_name_entry_sidebar, "Enter mod name...").strip()
         
-        # Get author from sidebar
         author = ""
         if self.author_entry_sidebar:
             author = self.get_real_value(self.author_entry_sidebar, "Your name...").strip()
         
-        # Update project data
         self.project_data["mod_name"] = mod_name
         self.project_data["author"] = author if author else "Unknown"
         
-        # Ask for save location
         filename = filedialog.asksaveasfilename(
             title="Save Project",
             defaultextension=".bsproject",
@@ -535,6 +966,8 @@ class GeneratorTab(ctk.CTkFrame):
                 self.show_notification(f"Error saving project: {str(e)}", "error")
     
     def load_project(self):
+    
+        print(f"[DEBUG] load_project called")
         """Load project from file"""
         filename = filedialog.askopenfilename(
             title="Load Project",
@@ -546,16 +979,13 @@ class GeneratorTab(ctk.CTkFrame):
                 with open(filename, 'r') as f:
                     loaded_data = json.load(f)
                 
-                # Validate structure
                 if "cars" not in loaded_data:
                     self.show_notification("Invalid project file", "error")
                     return
                 
-                # Clear current project
                 self.project_data = loaded_data
                 self.selected_car_for_skin = None
                 
-                # Update sidebar fields
                 if "mod_name" in loaded_data and self.mod_name_entry_sidebar:
                     self.mod_name_entry_sidebar.delete(0, "end")
                     self.mod_name_entry_sidebar.insert(0, loaded_data["mod_name"])
@@ -569,7 +999,6 @@ class GeneratorTab(ctk.CTkFrame):
                 print(f"[DEBUG] Project loaded from: {filename}")
                 self.show_notification(f"Loaded project with {len(loaded_data['cars'])} cars", "success")
                 
-                # Refresh display
                 self.refresh_project_display()
                 
             except Exception as e:
@@ -577,15 +1006,15 @@ class GeneratorTab(ctk.CTkFrame):
                 self.show_notification(f"Error loading project: {str(e)}", "error")
     
     def clear_project(self):
+    
+        print(f"[DEBUG] clear_project called")
         """Clear the current project"""
         if not self.project_data["cars"]:
             self.show_notification("Project is already empty", "info")
             return
         
-        # Import custom dialog
         from gui.components.dialogs import show_confirmation_dialog
         
-        # Show custom confirmation dialog
         confirmed = show_confirmation_dialog(
             self.winfo_toplevel(),
             "Clear Project",
@@ -593,24 +1022,38 @@ class GeneratorTab(ctk.CTkFrame):
         )
         
         if confirmed:
+            # Clear project cars
             self.project_data["cars"] = {}
             self.selected_car_for_skin = None
+            
+            # Clear and restore placeholder for mod name entry in sidebar
+            if self.mod_name_entry_sidebar:
+                self.mod_name_entry_sidebar.delete(0, "end")
+                self.mod_name_entry_sidebar.insert(0, "Enter mod name...")
+                self.mod_name_entry_sidebar.configure(text_color="#888888")
+                print(f"[DEBUG] Cleared mod name entry and restored placeholder")
+            
+            # Clear and restore placeholder for author entry in sidebar
+            if self.author_entry_sidebar:
+                self.author_entry_sidebar.delete(0, "end")
+                self.author_entry_sidebar.insert(0, "Your name...")
+                self.author_entry_sidebar.configure(text_color="#888888")
+                print(f"[DEBUG] Cleared author entry and restored placeholder")
+            
             self.show_notification("Project cleared", "info")
             self.refresh_project_display()
     
-    # ==================== UI REFRESH ====================
-    
     def refresh_project_display(self):
+    
+        print(f"[DEBUG] refresh_project_display called")
         """Refresh the project overview display with 2-column grid layout"""
         print(f"[DEBUG] ========== REFRESH PROJECT DISPLAY ==========")
         print(f"[DEBUG] Cars in project: {len(self.project_data['cars'])}")
         
-        # Clear existing widgets
         for widget in self.project_overview_frame.winfo_children():
             widget.destroy()
         
         if not self.project_data["cars"]:
-            # Show empty state
             empty_label = ctk.CTkLabel(
                 self.project_overview_frame,
                 text="No cars in project. Add cars from the sidebar →",
@@ -622,31 +1065,26 @@ class GeneratorTab(ctk.CTkFrame):
             print(f"[DEBUG] ========== REFRESH COMPLETE (EMPTY) ==========\n")
             return
         
-        # Get search query
         search_query = self.project_search_var.get().lower().strip()
         if search_query == "🔍 search cars...":
             search_query = ""
         
-        # Filter cars
         filtered_cars = {}
         for car_instance_id, car_info in self.project_data["cars"].items():
             base_carid = car_info.get("base_carid", car_instance_id)
             
-            # Get car name
             car_name = state.vehicle_ids.get(base_carid, base_carid)
             for cid, cname in self.car_id_list:
                 if cid == base_carid:
                     car_name = cname
                     break
             
-            # Check if matches search
             if not search_query or search_query in car_name.lower() or search_query in base_carid.lower():
                 filtered_cars[car_instance_id] = car_info
         
         print(f"[DEBUG] Filtered cars: {len(filtered_cars)} (search: '{search_query}')")
         
         if not filtered_cars:
-            # Show no results
             no_results_label = ctk.CTkLabel(
                 self.project_overview_frame,
                 text=f"No cars match '{search_query}'",
@@ -658,12 +1096,10 @@ class GeneratorTab(ctk.CTkFrame):
             print(f"[DEBUG] ========== REFRESH COMPLETE (NO RESULTS) ==========\n")
             return
         
-        # Create car cards in a 2-column grid
         current_row = None
         for idx, (car_instance_id, car_info) in enumerate(filtered_cars.items()):
             base_carid = car_info.get("base_carid", car_instance_id)
             
-            # Get car name
             car_name = state.vehicle_ids.get(base_carid, base_carid)
             for cid, cname in self.car_id_list:
                 if cid == base_carid:
@@ -672,15 +1108,12 @@ class GeneratorTab(ctk.CTkFrame):
             
             print(f"[DEBUG]   - {car_instance_id}: {car_name} ({len(car_info['skins'])} skins)")
             
-            # Create new row every 2 cards
             if idx % 2 == 0:
                 current_row = ctk.CTkFrame(self.project_overview_frame, fg_color="transparent")
                 current_row.pack(fill="x", pady=4, padx=4)
             
-            # Determine if this is selected
             is_selected = (car_instance_id == self.selected_car_for_skin)
             
-            # Car card
             car_card = ctk.CTkFrame(
                 current_row,
                 fg_color=state.colors["accent"] if is_selected else state.colors["card_bg"],
@@ -690,17 +1123,16 @@ class GeneratorTab(ctk.CTkFrame):
             )
             car_card.pack(side="left", fill="both", expand=True, padx=4)
             
-            # Make card clickable to select for adding skins
             def select_handler(cid=car_instance_id):
+            
+                print(f"[DEBUG] select_handler called")
                 self.select_car_for_skin(cid)
             
             car_card.bind("<Button-1>", lambda e, cid=car_instance_id: select_handler(cid))
             
-            # Header row
             header_row = ctk.CTkFrame(car_card, fg_color="transparent")
             header_row.pack(fill="x", padx=10, pady=(10, 5))
             
-            # Car name
             display_text = f"{car_name}"
             if "_" in car_instance_id and car_instance_id != base_carid:
                 instance_num = car_instance_id.split("_")[-1]
@@ -716,7 +1148,6 @@ class GeneratorTab(ctk.CTkFrame):
             car_label.pack(side="left", fill="x", expand=True)
             car_label.bind("<Button-1>", lambda e, cid=car_instance_id: select_handler(cid))
             
-            # Remove button
             remove_btn = ctk.CTkButton(
                 header_row,
                 text="✕",
@@ -731,7 +1162,6 @@ class GeneratorTab(ctk.CTkFrame):
             )
             remove_btn.pack(side="right")
             
-            # Skin count
             skin_count_label = ctk.CTkLabel(
                 car_card,
                 text=f"🎨 {len(car_info['skins'])} skins",
@@ -742,9 +1172,7 @@ class GeneratorTab(ctk.CTkFrame):
             skin_count_label.pack(anchor="w", padx=10, pady=(0, 5))
             skin_count_label.bind("<Button-1>", lambda e, cid=car_instance_id: select_handler(cid))
             
-            # Show skins if any
             if car_info["skins"]:
-                # Skins container with subtle background
                 skins_container = ctk.CTkFrame(
                     car_card,
                     fg_color=state.colors["app_bg"],
@@ -753,7 +1181,6 @@ class GeneratorTab(ctk.CTkFrame):
                 skins_container.pack(fill="x", padx=8, pady=(5, 10))
                 skins_container.bind("<Button-1>", lambda e, cid=car_instance_id: select_handler(cid))
                 
-                # Skins header
                 skins_header = ctk.CTkLabel(
                     skins_container,
                     text="Skins:",
@@ -763,8 +1190,9 @@ class GeneratorTab(ctk.CTkFrame):
                 )
                 skins_header.pack(anchor="w", padx=8, pady=(6, 4))
                 
+                print(f"[DEBUG]     Rendering {len(car_info['skins'])} skins for {car_instance_id}...")
                 for skin_idx, skin in enumerate(car_info["skins"]):
-                    # All rows use app_bg for consistency
+                    print(f"[DEBUG]       Creating skin row {skin_idx + 1}: {skin['name']}")
                     row_color = state.colors["app_bg"]
                     
                     skin_row = ctk.CTkFrame(
@@ -774,9 +1202,8 @@ class GeneratorTab(ctk.CTkFrame):
                         height=36
                     )
                     skin_row.pack(fill="x", padx=4, pady=2)
-                    skin_row.pack_propagate(False)  # Maintain height
+                    skin_row.pack_propagate(False)
                     
-                    # Icon
                     icon_label = ctk.CTkLabel(
                         skin_row,
                         text="🎨",
@@ -784,7 +1211,6 @@ class GeneratorTab(ctk.CTkFrame):
                     )
                     icon_label.pack(side="left", padx=(8, 6))
                     
-                    # Skin name with number
                     skin_label = ctk.CTkLabel(
                         skin_row,
                         text=f"{skin_idx + 1}. {skin['name']}",
@@ -794,7 +1220,6 @@ class GeneratorTab(ctk.CTkFrame):
                     )
                     skin_label.pack(side="left", fill="x", expand=True, padx=(0, 8))
                     
-                    # Remove button
                     remove_skin_btn = ctk.CTkButton(
                         skin_row,
                         text="✕",
@@ -808,11 +1233,29 @@ class GeneratorTab(ctk.CTkFrame):
                         command=lambda c=car_instance_id, i=skin_idx: self.remove_skin_from_car(c, i)
                     )
                     remove_skin_btn.pack(side="right", padx=6)
+                    print(f"[DEBUG]       Skin row {skin_idx + 1} packed successfully")
+                
+                print(f"[DEBUG]     Finished rendering all {len(car_info['skins'])} skins")
+                
+                skins_container.update()
+            
+            car_card.update()
         
         self.update_current_car_label()
+        
+        if self.project_overview_frame:
+            self.project_overview_frame.update()
+        
+        if self.project_overview_container:
+            self.project_overview_container.update()
+        
+        self.after(1, self._force_scrollable_reflow)
+        
         print(f"[DEBUG] ========== REFRESH COMPLETE (SUCCESS - {len(filtered_cars)} cars displayed) ==========\n")
     
     def update_current_car_label(self):
+    
+        print(f"[DEBUG] update_current_car_label called")
         """Update the label showing which car is selected"""
         if self.selected_car_for_skin and self.selected_car_for_skin in self.project_data["cars"]:
             base_carid = self.project_data["cars"][self.selected_car_for_skin].get("base_carid", self.selected_car_for_skin)
@@ -834,16 +1277,13 @@ class GeneratorTab(ctk.CTkFrame):
             self.current_car_label.pack_forget()
     
     def generate_mod(self, generate_button_topbar, output_mode_var, custom_output_var):
-        """Generate the mod with all cars and skins
-        
-        This should be called by the topbar generate button.
-        Pass in the button reference and output mode variables.
-        """
+    
+        print(f"[DEBUG] generate_mod called")
+        """Generate the mod with all cars and skins"""
         print("[DEBUG] \n" + "="*50)
         print("[DEBUG] MULTI-SKIN MOD GENERATION INITIATED")
         print("[DEBUG] ="*50)
         
-        # Get mod name and author from sidebar entries
         mod_name = ""
         author_name = ""
         if self.mod_name_entry_sidebar:
@@ -851,7 +1291,6 @@ class GeneratorTab(ctk.CTkFrame):
         if self.author_entry_sidebar:
             author_name = self.get_real_value(self.author_entry_sidebar, "Your name...").strip()
         
-        # Validation
         if not mod_name:
             self.show_notification("Please enter a ZIP name", "error")
             return
@@ -860,7 +1299,6 @@ class GeneratorTab(ctk.CTkFrame):
             self.show_notification("Please add at least one car to the project", "error")
             return
         
-        # Check all cars have skins
         cars_without_skins = []
         for carid, car_info in self.project_data["cars"].items():
             if not car_info["skins"]:
@@ -870,10 +1308,8 @@ class GeneratorTab(ctk.CTkFrame):
             self.show_notification(f"Please add skins to: {', '.join(cars_without_skins)}", "error", 4000)
             return
         
-        # Get output path if custom
         output_path = custom_output_var.get() if output_mode_var.get() == "custom" else None
         
-        # Update project data
         self.project_data["mod_name"] = mod_name
         self.project_data["author"] = author_name if author_name else "Unknown"
         
@@ -883,7 +1319,6 @@ class GeneratorTab(ctk.CTkFrame):
         total_skins = sum(len(car_info['skins']) for car_info in self.project_data['cars'].values())
         print(f"[DEBUG] Total Skins: {total_skins}")
         
-        # Show progress UI
         self.export_status_label.configure(text="Preparing to export...")
         self.export_status_label.pack(padx=20, pady=(10, 5))
         self.progress_bar.pack(fill="x", padx=20, pady=(0, 5))
@@ -891,20 +1326,26 @@ class GeneratorTab(ctk.CTkFrame):
         generate_button_topbar.configure(state="disabled")
         
         def update_status(message):
-            """Update the status label text"""
+        
+            print(f"[DEBUG] update_status called")
             self.export_status_label.configure(text=message)
         
         def update_progress(value):
-            """Update progress bar"""
+        
+            print(f"[DEBUG] update_progress called")
             if self.progress_bar.winfo_ismapped():
                 self.progress_bar.set(value)
         
         def thread_fn():
+        
+            print(f"[DEBUG] thread_fn called")
             try:
                 print("[DEBUG] \nStarting mod generation thread...")
                 update_status("Processing skins...")
                 
                 def progress_with_status(value):
+                
+                    print(f"[DEBUG] progress_with_status called")
                     update_progress(value)
                     if value < 0.3:
                         update_status("Copying template files...")
@@ -913,7 +1354,6 @@ class GeneratorTab(ctk.CTkFrame):
                     else:
                         update_status("Creating ZIP archive...")
                 
-                # Call the file_ops function
                 if generate_multi_skin_mod:
                     generate_multi_skin_mod(
                         self.project_data,
@@ -926,7 +1366,6 @@ class GeneratorTab(ctk.CTkFrame):
                     print("[DEBUG] ="*50 + "\n")
                     self.show_notification(f"✓ Mod '{mod_name}' created with {total_skins} skins!", "success", 5000)
                     
-                    # Show info about keeping project
                     self.after(2000, lambda: self.show_notification("Project kept. Click 'Clear Project' to start new one.", "info", 4000))
                 else:
                     update_status("Error: Generation function not available")
@@ -948,5 +1387,4 @@ class GeneratorTab(ctk.CTkFrame):
                 self.after(2000, lambda: self.progress_bar.pack_forget())
                 self.after(2000, lambda: self.export_status_label.pack_forget())
         
-        # Start generation in background thread
         threading.Thread(target=thread_fn, daemon=True).start()

@@ -1,8 +1,5 @@
 """
 Main Window - Entry point for the BeamSkin Studio application
-FIXED: Notification system now works properly
-ADDED: Window icon support
-FIXED: Generate button now only visible on Generator tab
 """
 from typing import Dict, Optional
 import customtkinter as ctk
@@ -17,16 +14,21 @@ from gui.tabs.settings import SettingsTab
 from gui.tabs.car_list import CarListTab
 from gui.tabs.generator import GeneratorTab
 from gui.tabs.howto import HowToTab
-from gui.tabs.developer import DeveloperTab
+from gui.tabs.developer import DeveloperTab, load_added_vehicles_at_startup
 from gui.tabs.about import AboutTab
 
 from utils.debug import setup_universal_scroll_handler
+
+
+print(f"[DEBUG] Loading class: BeamSkinStudioApp")
 
 
 class BeamSkinStudioApp(ctk.CTk):
     """Main application window"""
     
     def __init__(self):
+    
+        print(f"[DEBUG] __init__ called")
         super().__init__()
         
         # Window setup
@@ -81,6 +83,8 @@ class BeamSkinStudioApp(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
     
     def show_notification(self, message: str, type: str = "info", duration: int = 3000):
+    
+        print(f"[DEBUG] show_notification called")
         """Show a notification at the top of the app
         
         Args:
@@ -199,7 +203,6 @@ class BeamSkinStudioApp(ctk.CTk):
     
     def _setup_ui(self):
         """Set up the main UI"""
-        # Get current logo based on theme
         current_logo = self.logo_white if state.current_theme == "dark" else self.logo_black
         
         # Topbar
@@ -219,10 +222,8 @@ class BeamSkinStudioApp(ctk.CTk):
         self.sidebar = Sidebar(self.main_container, self.preview_manager)
         self.sidebar.pack(fill="y", side="left")
         
-        # Create tabs FIRST (so generator tab exists)
         self._create_tabs()
         
-        # THEN populate sidebar with the correct callback
         self.sidebar.populate_vehicles(self._add_vehicle_to_project_from_sidebar)
         
         # Connect sidebar entries to generator tab
@@ -236,7 +237,6 @@ class BeamSkinStudioApp(ctk.CTk):
         # Show initial tab
         self.switch_view("generator")
         
-        # Setup scroll handler after a delay
         self.after(50, lambda: setup_universal_scroll_handler(self))
     
     def _create_tabs(self):
@@ -266,11 +266,14 @@ class BeamSkinStudioApp(ctk.CTk):
         self.tabs["about"] = AboutTab(self.main_container)
     
     def switch_view(self, view_name: str):
+    
+        print(f"[DEBUG] switch_view called")
         """Switch between main views"""
         print(f"[DEBUG] Switching to view: {view_name}")
         
-        # Update menu button colors
         settings_tab = self.tabs.get("settings")
+        
+        # Update menu button colors
         for btn_name, btn in self.topbar.menu_buttons.items():
             if btn_name == view_name:
                 # Selected tab - no hover effect
@@ -289,14 +292,15 @@ class BeamSkinStudioApp(ctk.CTk):
                     font=ctk.CTkFont(size=12, weight="normal")
                 )
         
-        # Hide all tabs
+        # Hide all regular tabs
         for tab_name, tab in self.tabs.items():
             tab.pack_forget()
         
-        # Also hide developer tab if it exists
+        # Hide developer tab if it exists
         if settings_tab and isinstance(settings_tab, SettingsTab):
             if settings_tab.developer_tab:
                 settings_tab.developer_tab.pack_forget()
+                print("[DEBUG] Hid developer tab")
         
         # Hide sidebar for non-generator views
         if view_name != "generator":
@@ -312,12 +316,18 @@ class BeamSkinStudioApp(ctk.CTk):
         
         # Show requested tab
         if view_name in self.tabs:
+            # Show regular tab
             self.tabs[view_name].pack(fill="both", expand=True, side="left")
+            print(f"[DEBUG] Showing regular tab: {view_name}")
         elif view_name == "developer":
             if settings_tab and isinstance(settings_tab, SettingsTab):
                 if settings_tab.developer_tab:
                     settings_tab.developer_tab.pack(fill="both", expand=True, side="left")
-                    print(f"[DEBUG] Showing developer tab")
+                    print(f"[DEBUG] Successfully showed developer tab")
+                else:
+                    print(f"[DEBUG] ERROR: Developer tab doesn't exist yet - has developer mode been enabled?")
+            else:
+                print(f"[DEBUG] ERROR: Settings tab not found or wrong type")
         
         self.current_tab = view_name
         
@@ -376,17 +386,28 @@ class BeamSkinStudioApp(ctk.CTk):
         self.destroy()
     
     def show_startup_warning(self):
+    
+        print(f"[DEBUG] show_startup_warning called")
         """Show WIP warning dialog"""
         show_wip_warning(self)
     
     def prompt_update(self, new_version: str):
+    
+        print(f"[DEBUG] prompt_update called")
         """Show update notification"""
         show_update_dialog(self, new_version)
 
 
 def main():
+
+
+    print(f"[DEBUG] main called")
     """Entry point for the application"""
     print("[DEBUG] Starting BeamSkin Studio...")
+    
+    # Load custom vehicles from disk BEFORE creating the app
+    print("[DEBUG] Loading custom vehicles from added_vehicles.json...")
+    load_added_vehicles_at_startup()
     
     app = BeamSkinStudioApp()
     

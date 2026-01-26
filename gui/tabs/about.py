@@ -1,6 +1,5 @@
 """
-About Tab - Shows application information, credits, and version
-UPDATED: Replaced text title with logo image
+About Tab
 """
 import customtkinter as ctk
 import webbrowser
@@ -11,10 +10,15 @@ from PIL import Image
 from gui.state import state
 
 
+print(f"[DEBUG] Loading class: AboutTab")
+
+
 class AboutTab(ctk.CTkFrame):
     """About tab showing app info and credits"""
     
     def __init__(self, parent):
+    
+        print(f"[DEBUG] __init__ called")
         super().__init__(parent, fg_color=state.colors["app_bg"])
         
         # Socials frame reference
@@ -29,7 +33,6 @@ class AboutTab(ctk.CTkFrame):
         """Load the BeamSkin Studio logo based on current theme"""
         icon_dir = os.path.join("gui", "Icons")
         
-        # Choose logo based on theme
         if state.current_theme == "dark":
             logo_path = os.path.join(icon_dir, "BeamSkin_Studio_White.png")
         else:
@@ -133,6 +136,7 @@ class AboutTab(ctk.CTkFrame):
         if self.socials_frame.winfo_ismapped():
             # Collapse animation
             def collapse():
+                print(f"[DEBUG] collapse called")
                 self.socials_frame.pack_propagate(False)
                 for i in range(self.socials_frame.winfo_height(), -1, -5):
                     self.socials_frame.configure(height=max(0, i))
@@ -147,6 +151,8 @@ class AboutTab(ctk.CTkFrame):
             self.socials_frame.pack_propagate(False)
             
             def expand():
+            
+                print(f"[DEBUG] expand called")
                 for i in range(0, target_height + 2, 5):
                     self.socials_frame.configure(height=i)
                     time.sleep(0.01)

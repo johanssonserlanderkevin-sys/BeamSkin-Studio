@@ -7,7 +7,6 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 print(f"[DEBUG] Working directory: {os.getcwd()}")
 
-# Set AppUserModelID for Windows taskbar icon (MUST be before creating any windows)
 if sys.platform == 'win32':
     try:
         import ctypes
@@ -18,6 +17,8 @@ if sys.platform == 'win32':
         print(f"[DEBUG] Failed to set AppUserModelID: {e}")
 
 def center_window(window):
+
+    print(f"[DEBUG] center_window called")
     """Centers the window on the screen"""
     window.geometry("1600x1200")
     window.update_idletasks()
@@ -103,11 +104,11 @@ if __name__ == "__main__":
     # Show WIP warning AFTER a proper delay to ensure window is visible and focused
     # The key is to wait until the window has finished rendering
     def show_startup_sequence():
+        print(f"[DEBUG] show_startup_sequence called")
         """Show startup dialogs in sequence after window is ready"""
         # First remove topmost attribute (after 500ms to ensure window is visible)
         app.attributes('-topmost', False)
         
-        # Then show WIP warning (after window is definitely visible)
         app.after(200, app.show_startup_warning)
         
         # Start update check thread after dialogs

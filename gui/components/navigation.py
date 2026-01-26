@@ -1,7 +1,5 @@
 """
 Navigation Components - Sidebar and Topbar
-FIXED: ZIP Name field now only shows placeholder initially
-FIXED: Preview hover methods now use correct method names
 """
 from typing import Callable, Optional
 import customtkinter as ctk
@@ -10,10 +8,15 @@ from gui.state import state
 from gui.components.preview import HoverPreviewManager
 
 
+print(f"[DEBUG] Loading class: Sidebar")
+
+
 class Sidebar(ctk.CTkFrame):
     """Left sidebar with project settings and vehicle list"""
     
     def __init__(self, parent: ctk.CTk, preview_manager: HoverPreviewManager):
+    
+        print(f"[DEBUG] __init__ called")
         super().__init__(parent, width=280, fg_color=state.colors["sidebar_bg"], corner_radius=0)
         self.pack_propagate(False)
         self.preview_manager = preview_manager
@@ -22,6 +25,7 @@ class Sidebar(ctk.CTkFrame):
         self.output_mode_var = ctk.StringVar(value="steam")
         self.custom_output_var = ctk.StringVar()
         self.sidebar_search_var = ctk.StringVar()
+        self.sidebar_search_placeholder = "🔍 Search vehicles..."  # Placeholder text
         
         # Track expanded vehicle
         self.expanded_vehicle_carid: Optional[str] = None
@@ -68,7 +72,6 @@ class Sidebar(ctk.CTkFrame):
         )
         self.mod_name_entry.pack(fill="x", padx=15, pady=(0, 10))
         
-        # Setup placeholder - ALWAYS show placeholder initially
         self.mod_name_placeholder = "Enter mod name..."
         self.mod_name_entry.insert(0, self.mod_name_placeholder)
         self.mod_name_entry.configure(text_color="#888888")
@@ -97,7 +100,6 @@ class Sidebar(ctk.CTkFrame):
         )
         self.author_entry.pack(fill="x", padx=15, pady=(0, 15))
         
-        # Setup placeholder - ALWAYS show placeholder initially
         self.author_placeholder = "Your name..."
         self.author_entry.insert(0, self.author_placeholder)
         self.author_entry.configure(text_color="#888888")
@@ -161,7 +163,6 @@ class Sidebar(ctk.CTkFrame):
         self.output_mode_var.trace_add("write", lambda *args: self._update_output_mode())
         
         # Custom output frame (shown/hidden based on selection)
-        # This will be positioned after custom_option_sidebar when shown
         self.custom_output_frame = ctk.CTkFrame(self, fg_color="transparent")
         
         custom_output_entry = ctk.CTkEntry(
@@ -209,18 +210,26 @@ class Sidebar(ctk.CTkFrame):
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
         search_frame.pack(fill="x", padx=15, pady=(0, 8))
         
-        sidebar_search_entry = ctk.CTkEntry(
+        self.sidebar_search_entry = ctk.CTkEntry(
             search_frame,
             textvariable=self.sidebar_search_var,
-            placeholder_text="🔍 Search vehicles...",
-            placeholder_text_color="#888888",
             height=32,
             fg_color=state.colors["frame_bg"],
             border_color=state.colors["border"],
+            border_width=1,
             text_color=state.colors["text"],
-            font=ctk.CTkFont(size=11)
+            font=ctk.CTkFont(size=11),
+            corner_radius=6
         )
-        sidebar_search_entry.pack(fill="x")
+        self.sidebar_search_entry.pack(fill="x")
+        
+        # Set initial placeholder
+        self.sidebar_search_var.set(self.sidebar_search_placeholder)
+        self.sidebar_search_entry.configure(text_color="#888888")
+        
+        # Bind focus events for placeholder
+        self.sidebar_search_entry.bind("<FocusIn>", self._on_search_focus_in)
+        self.sidebar_search_entry.bind("<FocusOut>", self._on_search_focus_out)
         
         # Bind search
         self.sidebar_search_var.trace_add("write", lambda *args: self._filter_vehicles())
@@ -258,6 +267,18 @@ class Sidebar(ctk.CTkFrame):
             self.author_entry.insert(0, self.author_placeholder)
             self.author_entry.configure(text_color="#888888")
     
+    def _on_search_focus_in(self, event):
+        """Handle focus in for search entry - remove placeholder"""
+        if self.sidebar_search_var.get() == self.sidebar_search_placeholder:
+            self.sidebar_search_var.set("")
+            self.sidebar_search_entry.configure(text_color=state.colors["text"])
+    
+    def _on_search_focus_out(self, event):
+        """Handle focus out for search entry - restore placeholder if empty"""
+        if not self.sidebar_search_var.get():
+            self.sidebar_search_var.set(self.sidebar_search_placeholder)
+            self.sidebar_search_entry.configure(text_color="#888888")
+    
     def _update_output_mode(self):
         """Update output mode visibility"""
         if self.output_mode_var.get() == "custom":
@@ -268,7 +289,13 @@ class Sidebar(ctk.CTkFrame):
     
     def _filter_vehicles(self):
         """Filter vehicle buttons based on search"""
-        search_query = self.sidebar_search_var.get().lower()
+        search_query = self.sidebar_search_var.get()
+        
+        # Ignore placeholder text
+        if search_query == self.sidebar_search_placeholder:
+            search_query = ""
+        
+        search_query = search_query.lower()
         
         for container, carid, display_name, add_btn_frame in state.sidebar_vehicle_buttons:
             # Check if vehicle matches search
@@ -288,13 +315,13 @@ class Sidebar(ctk.CTkFrame):
         return "" if value == placeholder else value
     
     def select_custom_output(self):
+    
+        print(f"[DEBUG] select_custom_output called")
         """Select custom output directory"""
-        # Create a temporary invisible window for dialog positioning
         temp_window = ctk.CTkToplevel(self.winfo_toplevel())
         temp_window.withdraw()  # Keep it hidden
         temp_window.attributes('-alpha', 0)  # Make it completely transparent
         
-        # Position the temporary window near the custom output option
         if self.custom_output_frame.winfo_ismapped():
             x = self.custom_output_frame.winfo_rootx()
             y = self.custom_output_frame.winfo_rooty() + self.custom_output_frame.winfo_height() + 10
@@ -303,7 +330,6 @@ class Sidebar(ctk.CTkFrame):
         # Update to ensure window is positioned before dialog opens
         temp_window.update()
         
-        # Open file dialog with the temporary window as parent
         folder = filedialog.askdirectory(
             title="Select Output Directory",
             parent=temp_window
@@ -318,6 +344,8 @@ class Sidebar(ctk.CTkFrame):
             print(f"[DEBUG] Custom output directory selected: {folder}")
     
     def populate_vehicles(self, add_callback: Callable[[str, str], None]):
+    
+        print(f"[DEBUG] populate_vehicles called")
         """Populate sidebar with vehicle buttons
         
         Args:
@@ -325,15 +353,24 @@ class Sidebar(ctk.CTkFrame):
         """
         print("[DEBUG] Populating sidebar with vehicles...")
         
-        # Sort vehicles by display name
-        sorted_vehicles = sorted(state.vehicle_ids.items(), key=lambda x: x[1].lower())
+        # Build combined dict of ALL vehicles (built-in + custom)
+        all_vehicles = {}
         
+        # Add built-in vehicles (skip if already in added_vehicles to prevent duplicates)
+        for carid, display_name in state.vehicle_ids.items():
+            if carid not in state.added_vehicles:  # Skip custom vehicles here
+                all_vehicles[carid] = display_name
+        
+        # Add custom vehicles
+        for carid, carname in state.added_vehicles.items():
+            all_vehicles[carid] = carname
+        
+        # Sort all vehicles by display name
+        sorted_vehicles = sorted(all_vehicles.items(), key=lambda x: x[1].lower())
+        
+        # Add buttons for all vehicles
         for carid, display_name in sorted_vehicles:
             self._add_vehicle_button(carid, display_name, add_callback)
-        
-        # Add developer-added vehicles
-        for carid, carname in state.added_vehicles.items():
-            self._add_vehicle_button(carid, carname, add_callback)
         
         print(f"[DEBUG] Added {len(state.sidebar_vehicle_buttons)} vehicles to sidebar")
     
@@ -422,6 +459,8 @@ class Sidebar(ctk.CTkFrame):
             self.expanded_vehicle_carid = carid
     
     def update_icons(self, steam_icon, folder_icon):
+    
+        print(f"[DEBUG] update_icons called")
         """Update output icons based on current theme"""
         if steam_icon:
             self.steam_icon_label.configure(image=steam_icon)
@@ -429,11 +468,16 @@ class Sidebar(ctk.CTkFrame):
             self.custom_icon_label.configure(image=folder_icon)
 
 
+print(f"[DEBUG] Loading class: Topbar")
+
+
 class Topbar(ctk.CTkFrame):
     """Top navigation bar with menu and generate button"""
     
     def __init__(self, parent: ctk.CTk, on_view_change: Callable[[str], None], on_generate: Callable[[], None], 
                  logo_image=None):
+    
+        print(f"[DEBUG] __init__ called")
         # height=60 is the topbar height - reduce to 50 or 55 if logo needs less space
         super().__init__(parent, height=60, fg_color=state.colors["topbar_bg"], corner_radius=0)
         self.pack_propagate(False)
@@ -531,6 +575,8 @@ class Topbar(ctk.CTkFrame):
         self.generate_button.pack(side="right", padx=25)
     
     def update_logo(self, logo_image):
+    
+        print(f"[DEBUG] update_logo called")
         """Update the logo image when theme changes"""
         self.logo_image = logo_image
         # Rebuild the UI to show the new logo
