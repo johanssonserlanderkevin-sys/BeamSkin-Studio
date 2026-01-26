@@ -1,8 +1,7 @@
 """
 BeamSkin Studio - installer
 """
-import customtkinter as ctk
-from PIL import Image
+# Import only standard library modules first (these are always available)
 import subprocess
 import sys
 import os
@@ -10,6 +9,59 @@ import threading
 import time
 import urllib.request
 import tempfile
+
+# Check and install required packages BEFORE importing them
+def ensure_packages():
+    """Check if required packages are installed, install if not"""
+    print("[LAUNCHER] Checking required packages...")
+    
+    required_packages = [
+        ("customtkinter", "customtkinter"),
+        ("Pillow", "PIL"),
+        ("requests", "requests")
+    ]
+    
+    missing_packages = []
+    
+    for package_name, import_name in required_packages:
+        try:
+            __import__(import_name)
+            print(f"[LAUNCHER]   ✓ {package_name} is installed")
+        except ImportError:
+            print(f"[LAUNCHER]   ✗ {package_name} is NOT installed")
+            missing_packages.append(package_name)
+    
+    if missing_packages:
+        print(f"[LAUNCHER] Installing missing packages: {', '.join(missing_packages)}")
+        print("[LAUNCHER] This may take 1-2 minutes...")
+        
+        for package in missing_packages:
+            print(f"[LAUNCHER]   Installing {package}...")
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", package, "--quiet"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                print(f"[LAUNCHER]   ✓ {package} installed successfully")
+            except subprocess.CalledProcessError as e:
+                print(f"[LAUNCHER]   ✗ Failed to install {package}")
+                print(f"[LAUNCHER]   Please run manually: pip install {package}")
+                input("\nPress Enter to exit...")
+                sys.exit(1)
+        
+        print("[LAUNCHER] All packages installed successfully!")
+    else:
+        print("[LAUNCHER] All required packages are already installed")
+    
+    print("[LAUNCHER] Starting GUI launcher...")
+
+# Run package check BEFORE importing GUI libraries
+ensure_packages()
+
+# NOW it's safe to import GUI libraries
+import customtkinter as ctk
+from PIL import Image
 
 COLORS = {
     "bg": "#0a0a0a",
