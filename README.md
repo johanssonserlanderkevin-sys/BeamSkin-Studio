@@ -18,6 +18,10 @@
 - after the install is done it will launch BeamSkin Studio, but use the BeamSkin Studio.bat to launch the program afterward for a quicker launch
 
 
+## Installation
+- if u are updating to a new verison, paste the new version in to your current BeamSkin Studio folder, u might need to delete cache files and rerun the install.bat file
+
+
 ## Features
 
 - Automatic update checking (checks GitHub for new versions on startup)
