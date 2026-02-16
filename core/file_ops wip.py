@@ -998,12 +998,10 @@ def process_json_files(folder_path, vehicle_id, skin_folder_name, dds_filename, 
                                 if "SKINNAME" in old_path.upper():
                                     # Replace SKINNAME in folder path with skin_folder_name (has underscores)
                                     # Replace SKINNAME in filename with dds_identifier (no spaces/underscores)
-                                    # Preserve original file extension
                                     # Example: vehicles/etki/SKINNAME/etki_skin_SKINNAME.dds
                                     #       -> vehicles/etki/7-eleven_V1/etki_skin_7-elevenV1.dds
                                     new_path = re.sub(r'/SKINNAME/', f"/{skin_folder_name}/", old_path, flags=re.IGNORECASE)
-                                    # Replace SKINNAME but preserve the file extension
-                                    new_path = re.sub(r'_skin_SKINNAME(\.\w+)', f"_skin_{dds_identifier}\\1", new_path, flags=re.IGNORECASE)
+                                    new_path = re.sub(r'_skin_SKINNAME\.dds', f"_skin_{dds_identifier}.dds", new_path, flags=re.IGNORECASE)
                                     # Also replace carid placeholder
                                     new_path = re.sub(r'(?<![a-zA-Z0-9])carid', vehicle_id, new_path, flags=re.IGNORECASE)
                                     print(f"[DEBUG] Replaced SKINNAME placeholder in baseColorMap for {material_key}:")
@@ -1092,21 +1090,19 @@ def process_json_files(folder_path, vehicle_id, skin_folder_name, dds_filename, 
                 content
             )
             
-            # Update SKINNAME placeholders in paths
-            # This handles the template format: /vehicles/carid/SKINNAME/carid_skin_SKINNAME.ext
+            # Update SKINNAME placeholders in baseColorMap paths
+            # This handles the template format: /vehicles/carid/SKINNAME/carid_skin_SKINNAME.dds
             # IMPORTANT: Use skin_folder_name for folder (preserves format like "7-eleven_V1")
             #            Use dds_identifier for filename (sanitized like "7-elevenV1")
-            #            Preserve original file extension (.dds, .png, .json, etc.)
             content = re.sub(
                 r'/SKINNAME/',
                 f'/{skin_folder_name}/',
                 content,
                 flags=re.IGNORECASE
             )
-            # Replace SKINNAME in filenames while preserving extension
             content = re.sub(
-                r'_skin_SKINNAME(\.\w+)',
-                f'_skin_{dds_identifier}\\1',
+                r'_skin_SKINNAME\.dds',
+                f'_skin_{dds_identifier}.dds',
                 content,
                 flags=re.IGNORECASE
             )

@@ -1,0 +1,37 @@
+{
+  "muscle_main.skin.skinname": {
+    "name": "muscle_main.skin.skinname",
+    "mapTo": "muscle_main.skin.skinname",
+    "class": "Material",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/muscle/muscle_main_ao.data.png",
+        "baseColorMap": "/vehicles/muscle/muscle_main_b.color.png",
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/muscle/muscle_main_m.data.png",
+        "normalMap": "vehicles/muscle/muscle_main_n.normal.png",
+        "roughnessMap": "/vehicles/muscle/muscle_main_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/muscle/muscle_main_ao.data.png",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/muscle/muscle_main_c.data.png",
+        "clearCoatRoughnessFactor": 1,
+        "metallicFactor": 1,
+        "normalMap": "/vehicles/muscle/muscle_main_n.normal.png",
+        "opacityMap": "/vehicles/muscle/muscle_main_c.data.png",
+        "useAnisotropic": true,
+        "baseColorMap": "vehicles/carid/skinname/carid_skin_skinname.dds",
+        "diffuseMapUseUV": 1,
+        "roughnessFactor": 0.5
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "LucasBE",
+    "materialTag1": "vehicle",
+    "order_simset": 0,
+    "version": 1.5
+  }
+}

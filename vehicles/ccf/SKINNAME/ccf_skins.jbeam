@@ -1,0 +1,11 @@
+{
+    "ccf_skin_SKINNAME": {
+        "information":{
+            "authors":"author",
+            "name":"SKIN NAME",
+            "value":200
+        },
+        "slotType" : "paint_design",
+        "globalSkin" : "SKINNAME"
+    }
+}

@@ -1,0 +1,37 @@
+{
+  "mirena_body.skin.skinname": {
+    "name": "midsize_body.skin.skinname",
+    "mapTo": "midsize_body.skin.skinname",
+    "class": "Material",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/midsize/midsize_body_ao.data.png",
+        "baseColorMap": "/vehicles/midsize/midsize_body_b.color.png",
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/midsize/midsize_body_m.data.png",
+        "normalMap": "vehicles/midsize/midsize_body_nm.normal.png",
+        "roughnessMap": "/vehicles/midsize/midsize_body_r.data.png",
+        "useAnisotropic": true
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/midsize/midsize_body_ao.data.png",
+        "baseColorMap": "vehicles/carid/skinname/carid_skin_skinname.dds",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/midsize/midsize_body_cc.data.png",
+        "clearCoatRoughnessFactor": 0.1,
+        "diffuseMapUseUV": 1,
+        "normalMap": "/vehicles/midsize/midsize_body_nm.normal.png",
+        "opacityMap": "/vehicles/midsize/midsize_body_c.data.png",
+        "useAnisotropic": true,
+        "metallicFactor": 0.5,
+        "roughnessFactor": 0.5
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "order_simset": 0,
+    "version": 1.5
+  }
+}

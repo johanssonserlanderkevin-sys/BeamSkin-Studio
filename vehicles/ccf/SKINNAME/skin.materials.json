@@ -1,0 +1,115 @@
+{
+  "ccf_mechanical.skin.skinname": {
+    "name": "ccf_mechanical.skin.skinname",
+    "mapTo": "ccf_mechanical.skin.skinname",
+    "class": "Material",
+    "persistentId": "1cc78d47-240f-4710-b935-573b5b0b7eca",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/ccf/textures/ccf_mechanical_ao.data.png",
+        "baseColorMap": "/vehicles/ccf/textures/ccf_mechanical_b.color.png",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/ccf/textures/ccf_mechanical_c.data.png",
+        "clearCoatRoughnessFactor": 0,
+        "instanceDiffuse": null,
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/ccf/textures/ccf_mechanical_m.data.png",
+        "normalMap": "vehicles/ccf/textures/ccf_mechanical_n.normal.png",
+        "roughnessMap": "/vehicles/ccf/textures/ccf_mechanical_r.data.png"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/ccf/textures/ccf_mechanical_ao.data.png",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/ccf/textures/ccf_mechanical_c.data.png",
+        "clearCoatRoughnessFactor": null,
+        "metallicFactor": 1,
+        "normalMap": "/vehicles/ccf/textures/ccf_mechanical_n.normal.png",
+        "opacityMap": "/vehicles/ccf/textures/ccf_mechanical_c.data.png",
+        "baseColorMap": "vehicles/carid/skinname/carid_skin_skinname.dds",
+        "diffuseMapUseUV": 1,
+        "roughnessFactor": 0.5
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "version": 1.5
+  },
+  "ccf_main.skin.skinname": {
+    "name": "ccf_main.skin.skinname",
+    "mapTo": "ccf_main.skin.skinname",
+    "class": "Material",
+    "persistentId": "afb9c2fc-5d7d-4999-b02f-a8c92ce376d4",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/ccf/textures/ccf_main_ao.data.dds",
+        "baseColorMap": "/vehicles/ccf/textures/ccf_main_b.color.dds",
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/ccf/textures/ccf_main_m.data.dds",
+        "normalMap": "vehicles/ccf/textures/ccf_main_n.normal.dds",
+        "roughnessFactor": null,
+        "roughnessMap": "/vehicles/ccf/textures/ccf_main_r.data.dds"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/ccf/textures/ccf_main_ao.data.dds",
+        "baseColorMap": "vehicles/carid/skinname/carid_skin_skinname.dds",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/ccf/textures/ccf_main_cc.data.dds",
+        "clearCoatRoughnessFactor": 0,
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 1,
+        "normalMap": "vehicles/ccf/textures/ccf_main_n.normal.dds",
+        "opacityMap": "/vehicles/ccf/textures/ccf_main_c.data.dds",
+        "roughnessFactor": 0.583999991
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "Theo Wilkinson",
+    "materialTag1": "vehicle",
+    "translucentBlendOp": "None",
+    "version": 1.5
+  },
+  "ccf_aftermarket.skin.skinname": {
+    "name": "ccf_aftermarket.skin.skinname",
+    "mapTo": "ccf_aftermarket.skin.skinname",
+    "class": "Material",
+    "persistentId": "afb9c2fc-5d7d-4999-b02f-a8c92ce376d4",
+    "Stages": [
+      {
+        "ambientOcclusionMap": "/vehicles/ccf/textures/ccf_aftermarket_ao.data.dds",
+        "baseColorMap": "/vehicles/ccf/textures/ccf_aftermarket_b.color.dds",
+        "clearCoatFactor": null,
+        "clearCoatRoughnessFactor": null,
+        "diffuseMapUseUV": null,
+        "metallicFactor": 1,
+        "metallicMap": "/vehicles/ccf/textures/ccf_aftermarket_m.data.dds",
+        "normalMap": "vehicles/ccf/textures/ccf_aftermarket_n.normal.dds",
+        "roughnessFactor": null,
+        "roughnessMap": "/vehicles/ccf/textures/ccf_aftermarket_r.data.dds"
+      },
+      {
+        "ambientOcclusionMap": "/vehicles/ccf/textures/ccf_aftermarket_ao.data.dds",
+        "baseColorMap": "vehicles/carid/skinname/carid_skin_skinname.dds",
+        "clearCoatFactor": 1,
+        "clearCoatMap": "/vehicles/ccf/textures/ccf_aftermarket_o.data.dds",
+        "clearCoatRoughnessFactor": 0,
+        "diffuseMapUseUV": 1,
+        "metallicFactor": 1,
+        "normalMap": "vehicles/ccf/textures/ccf_aftermarket_n.normal.dds",
+        "opacityMap": "/vehicles/ccf/textures/ccf_aftermarket_o.data.dds",
+        "roughnessFactor": 0.583999991
+      }
+    ],
+    "activeLayers": 2,
+    "dynamicCubemap": true,
+    "materialTag0": "Theo Wilkinson",
+    "materialTag1": "vehicle",
+    "translucentBlendOp": "None",
+    "version": 1.5
+  }
+}
